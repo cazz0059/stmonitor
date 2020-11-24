@@ -5,6 +5,7 @@ import java.io.{File, PrintWriter}
 import com.typesafe.scalalogging.Logger
 import monitor.interpreter.STInterpreter
 import monitor.parser.STParser
+import monitor.parser.STParseTree
 
 import scala.io.Source
 
@@ -27,6 +28,15 @@ class Synth {
     parser.parseAll(parser.sessionTypeVar, inputSource) match {
       case parser.Success(r, n) =>
         logger.info("Input parsed successfully")
+
+        val parseTree = new STParseTree(r)
+        try {
+          parseTree.construct()
+        } catch {
+          case e: Exception =>
+            println("Error: " + e.getMessage)
+        }
+
         val interpreter = new STInterpreter(r, path)
         try {
           val (mon, protocol) = interpreter.run()

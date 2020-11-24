@@ -13,7 +13,7 @@ class STParser extends StandardTokenParsers {
   private var sendChoiceCounter: Int = 0
   private var receiveChoiceCounter: Int = 0
 
-  def sessionTypeVar: Parser[SessionType] = (ident ~> "=") ~ sessionType ^^ {
+  def sessionTypeVar: Parser[SessionType] = (ident <~ "=") ~ sessionType ^^ {
     case i ~ t =>
       new SessionType(i, t)
   }
