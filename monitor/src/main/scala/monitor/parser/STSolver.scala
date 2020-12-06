@@ -37,7 +37,7 @@ class STSolver(sessionType : SessionType, path: String){
   }
 
   def run() : SessionType = {
-    sessionType.statement match {
+    sessionType.statement match { // this part m ight all be useless
       case recursiveStatement: RecursiveStatement =>
         var tmpStatement: Statement = null
         while(tmpStatement.isInstanceOf[RecursiveStatement]){
@@ -100,7 +100,7 @@ class STSolver(sessionType : SessionType, path: String){
     }
   }
 
-  // this one should do all the solving stuff while parsing
+  // this one should do all the solving stuff while traversing
   def walk(statement: Statement): Unit = {
     statement match {
       case statement @ ReceiveStatement(label, types, condition, _) =>
@@ -184,7 +184,8 @@ class STSolver(sessionType : SessionType, path: String){
     for(typ <- types) {
       scopes(curScope).variables(typ._1) = (false, typ._2)
     }
-    if (condition != null){
+    if (condition != null){ // replace assertion function with actual assertion, basically build clauses not just identifiers
+      // change scope class to hold clauses aswell
       val identifiersInCondition = getIdentifiers(condition)
       for(ident <- identifiersInCondition){
         val identScope = searchIdent(curScope, ident)
@@ -198,6 +199,7 @@ class STSolver(sessionType : SessionType, path: String){
   class traverser extends Traverser {
     var identifiers: List[String] = List[String]()
 
+    // with reference to above function, this should return the identifiers as a clause rather than just the identifiers
     override def traverse(tree: Tree): Unit = tree match { // change this so it doesnt only return identifiers?
       case i @ Ident(_) =>
         identifiers = i.name.decodedName.toString :: identifiers
@@ -207,10 +209,14 @@ class STSolver(sessionType : SessionType, path: String){
     }
   }
 
-  def getIdentifiers(condition: String): List[String] = { // check this tree
+  def getIdentifiers(condition: String): List[String] = {
     val conditionTree = toolbox.parse(condition)
     val traverser = new traverser
     traverser.traverse(conditionTree)
+    //print("\n" ++ traverser. ++ "\n\n") // see what more i can do with this traversed tree
+    // i can do this after i allow traverse to have more than identifiers as an attribute
+    // print clauses here instead of just list of idents
+    print("\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
     traverser.identifiers.distinct.filter(_ != "util")
   }
 
@@ -255,35 +261,39 @@ class STSolver(sessionType : SessionType, path: String){
   // typechecks condition
   // since this class will happen before(or during) interpreter, the conditions must be typechecked first before solving
   // debug this function to see what each step really does
-  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={
+  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={ // this shouldnt return bool, it should return the clauses
     if(condition != null) {
       var stringVariables = ""
-      val identifiersInCondition = getIdentifiers(condition)
+      val identifiersInCondition = getIdentifiers(condition) // will become getClauses
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
       val util = try source.mkString finally source.close()
       for(identName <- identifiersInCondition){
         val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
         stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
       }
+      print("\nString Variables >>> " ++ stringVariables ++ "\n\n")
+
       val eval = s"""
                     |$util
                     |$stringVariables
                     |$condition
                     |""".stripMargin
-      val tree = toolbox.parse(eval)
+      val tree = toolbox.parse(eval) // research on what toolbox does and what these functions do
       val checked = toolbox.typecheck(tree)
       checked.tpe == Boolean
     }
     // after checking type do the things to do for condition calculating and saving
-    calculatingConditions()
+    // no what, there s nothing to calculate
+    // see steps in evernote
+    solver() // solver goes in here
   }
 
   def checkStatement(statement: Statement) : Unit = {
 
   }
 
-  def calculatingConditions(): Boolean ={
-    true
+  def solver(): Boolean ={
+    true // this returns sat/unsat?
   }
 
   // check out synthmon/synthprotocol setup for these functions
