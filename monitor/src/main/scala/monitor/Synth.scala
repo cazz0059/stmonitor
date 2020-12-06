@@ -6,6 +6,7 @@ import com.typesafe.scalalogging.Logger
 import monitor.interpreter.STInterpreter
 import monitor.parser.STParser
 import monitor.parser.STParseTree
+import monitor.parser.STSolver
 
 import scala.io.Source
 
@@ -29,13 +30,25 @@ class Synth {
       case parser.Success(r, n) =>
         logger.info("Input parsed successfully")
 
-        val parseTree = new STParseTree(r)
+        val parseTree = new STParseTree(r, "original")
         try {
           parseTree.construct()
         } catch {
           case e: Exception =>
             println("Error: " + e.getMessage)
         }
+
+        val solver = new STSolver(r, path)
+        val rSolved = solver.run()
+
+        val parseTreeSolved = new STParseTree(rSolved, "solved")
+        try {
+          parseTreeSolved.construct()
+        } catch {
+          case e: Exception =>
+            println("Error: " + e.getMessage)
+        }
+
 
         val interpreter = new STInterpreter(r, path)
         try {

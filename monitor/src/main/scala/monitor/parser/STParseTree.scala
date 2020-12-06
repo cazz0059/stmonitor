@@ -8,7 +8,7 @@ import com.typesafe.scalalogging.Logger
 //import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.xml.{PrettyPrinter, XML}
 
-class STParseTree(sessionType: SessionType) {
+class STParseTree(sessionType: SessionType, name: String) {
 
   val logger = Logger("STParseTree")
 
@@ -21,14 +21,14 @@ class STParseTree(sessionType: SessionType) {
     textXML = textXML ++ statementPT(sessionType.statement)
     textXML = textXML ++ "</" ++ STname ++ ">"
 
-    print("\n" ++ textXML ++ "\n\n")
+    //print("\n" ++ textXML ++ "\n\n")
 
     val xmlText = XML.loadString(textXML)
     val parseTree = new PrettyPrinter(150, 4).format(xmlText)
     print("\n")
     print(parseTree)
     print("\n\n")
-    XML.save("parseTree.xml", xmlText)
+    XML.save(name ++ "_" ++ STname ++ "_parseTree.xml", xmlText)
     logger.info("XML file created")
     //logger.info("XML text created")
   }
@@ -36,7 +36,7 @@ class STParseTree(sessionType: SessionType) {
   def statementPT(root : Statement) : String = {
     root match {
       case ReceiveStatement(label, types, condition, continuation) =>
-        logger.info("ReceiveStatement")
+        //logger.info("ReceiveStatement")
         var textXML = "<receive_" ++ label ++ ">"
 
         textXML = textXML ++ "<types>"
@@ -56,7 +56,7 @@ class STParseTree(sessionType: SessionType) {
         textXML ++ "</receive_" ++ label ++ ">"
 
       case SendStatement(label, types, condition, continuation) =>
-        logger.info("SendStatement " ++ label)
+        //logger.info("SendStatement " ++ label)
         var textXML = "<send_" ++ label ++ ">"
 
         textXML = textXML ++ "<types>"
@@ -76,7 +76,7 @@ class STParseTree(sessionType: SessionType) {
         textXML ++ "</send_" ++ label ++ ">"
 
       case ReceiveChoiceStatement(label, choices) =>
-        logger.info("ReceiveChoiceStatement")
+        //logger.info("ReceiveChoiceStatement")
         var textXML = "<branch_" ++ label ++ ">"
 
         for (choice <- choices) {
@@ -88,7 +88,7 @@ class STParseTree(sessionType: SessionType) {
         textXML ++ "</branch_" ++ label ++ ">"
 
       case SendChoiceStatement(label, choices) =>
-        logger.info("SendChoiceStatement")
+        //logger.info("SendChoiceStatement")
         var textXML = "<selection_" ++ label ++ ">"
 
         for (choice <- choices) {
@@ -100,19 +100,19 @@ class STParseTree(sessionType: SessionType) {
         textXML ++ "</selection_" ++ label ++ ">"
 
       case RecursiveStatement(label, body) =>
-        logger.info("Recursivetatement")
+        //logger.info("Recursivetatement")
         var textXML = "<recursion_" ++ label ++ ">"
         textXML = textXML ++ statementPT(body)
         textXML ++ "</recursion_" ++ label ++ ">"
 
       case RecursiveVar(name, continuation) =>
-        logger.info("RecursiveVarStatement")
+        //logger.info("RecursiveVarStatement")
         var textXML = "<recursionVar_" ++ name ++ ">"
         textXML = textXML ++ statementPT(continuation)
         textXML ++ "</recursionVar_" ++ name ++ ">"
 
       case End() =>
-        logger.info("End")
+        //logger.info("End")
         ""
 
       case _ =>
