@@ -25,9 +25,9 @@ class STParseTree(sessionType: SessionType, name: String) {
 
     val xmlText = XML.loadString(textXML)
     val parseTree = new PrettyPrinter(150, 4).format(xmlText)
-    print("\n")
-    print(parseTree)
-    print("\n\n")
+//    print("\n")
+//    print(parseTree)
+//    print("\n\n")
     XML.save(name ++ "_" ++ STname ++ "_parseTree.xml", xmlText)
     logger.info("XML file created")
     //logger.info("XML text created")

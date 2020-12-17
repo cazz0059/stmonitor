@@ -8,6 +8,8 @@ import scala.tools.reflect.ToolBox
 import monitor.model._
 import monitor.model.Scope
 
+//import z3
+
 import com.typesafe.scalalogging.Logger
 
 class STSolver(sessionType : SessionType, path: String){
@@ -37,7 +39,7 @@ class STSolver(sessionType : SessionType, path: String){
   }
 
   def run() : SessionType = {
-    sessionType.statement match { // this part m ight all be useless
+    sessionType.statement match { // this part might all be useless
       case recursiveStatement: RecursiveStatement =>
         var tmpStatement: Statement = null
         while(tmpStatement.isInstanceOf[RecursiveStatement]){
@@ -211,12 +213,19 @@ class STSolver(sessionType : SessionType, path: String){
 
   def getIdentifiers(condition: String): List[String] = {
     val conditionTree = toolbox.parse(condition)
+
+    print("CONDITION TREE\n")
+    print(show(conditionTree))
+    print("\n")
+    print(showRaw(conditionTree))
+    print("\n\n")
+
     val traverser = new traverser
     traverser.traverse(conditionTree)
     //print("\n" ++ traverser. ++ "\n\n") // see what more i can do with this traversed tree
     // i can do this after i allow traverse to have more than identifiers as an attribute
     // print clauses here instead of just list of idents
-    print("\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
+    //print("\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
     traverser.identifiers.distinct.filter(_ != "util")
   }
 
@@ -293,6 +302,7 @@ class STSolver(sessionType : SessionType, path: String){
   }
 
   def solver(): Boolean ={
+    //val z3 = new Z3Context("MODEL" -> true)
     true // this returns sat/unsat?
   }
 

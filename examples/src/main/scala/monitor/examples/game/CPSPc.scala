@@ -1,4 +1,5 @@
 package monitor.examples.game
+
 import lchannels.{In, Out}
 sealed abstract class InternalChoice1
 case class Guess(num: Int)(val cont: Out[ExternalChoice1]) extends InternalChoice1

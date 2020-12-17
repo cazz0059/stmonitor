@@ -18,14 +18,16 @@ lazy val commonSettings = Seq(
   )
 )
 
+scalaVersion := "2.12.7"
+
 lazy val lchannels = (project in file("lchannels")).
   settings(commonSettings: _*).
   settings(
     name := "lchannels",
 
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-typed" % "2.5.0",
-      "com.typesafe.akka" %% "akka-remote" % "2.5.0"
+      "com.typesafe.akka" %% "akka-typed" % "2.5.8",
+      "com.typesafe.akka" %% "akka-remote" % "2.5.8"
     )
   )
 

@@ -1,0 +1,1 @@
+<S_first><receive_First><types>x : String, </types><condition>x</condition><continuation><selection_InternalChoice1><choice><send_Second><types>x : String, </types><condition>not x</condition><continuation/></send_Second></choice><choice><send_Third><types/><continuation/></send_Third></choice></selection_InternalChoice1></continuation></receive_First></S_first>
