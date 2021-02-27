@@ -1,0 +1,44 @@
+C_smtp = ?_220(String).rec X1.(
+    &{
+        ?_250dash(String).X1,
+        ?_250(String).rec Z1.(
+            !Data(String).rec Z3.(
+                +{
+                    !Subject(String).Z3,
+                    !Dataline(String).Z3,
+                    !atad(String).?_250(String).Z1
+                }
+            )
+        )
+    }
+)
+
+local protocol SMPT_C(role S, self C) {
+    _220(String) from S; ...
+    rec X1 {
+        choice at S {
+            _250dash(String) from S;
+            continue X1;
+        }
+        or
+        {
+            _250(String) from S; ...
+            rec Z1 {
+                ... data(String) to S; ...
+                rec Z3 {
+                    choice at C {
+                        subject(String) to S; continue Z3;
+                    }
+                    or
+                    {
+                        dataline(String) to S; continue Z3;
+                    }
+                    or
+                    {
+                        atad(String) to S;, _250(String) from S; continue Z1;
+                    }
+                }
+            }
+        }
+    }
+}

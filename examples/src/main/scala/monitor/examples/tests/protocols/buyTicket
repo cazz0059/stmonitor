@@ -1,0 +1,27 @@
+S_buy_ticket = ?Request(Travel).!Quote(Price).?Check(Price)[Price > 10].+{
+    !Approve(Code)[approve(Code) and (Price == 10)].!Ticket(String)[invoice(Code) and payment(Price)],
+    !Refuse(String)[refuse(String)]
+}
+-------------------------------------------------------------
+A,F grouped together
+
+"from _ to _" is the direction of the send and receive
+due to how the session types are built in this system (do not send or receive unless branched or selected) we cannot have these CHECK THIS!!!
+
+global protocol BuyTicket(role R, role A, role F) {
+    request(Travel) from R to A;
+    quote(Price) from A to R;
+    check(Price) from R to F;
+    choice at F {
+        approve(Code) from F to R,A;
+        ticket(String) from A to R;
+        invoice(Code) from A to F;
+        payment(Price) from F to A;
+    }
+    or
+    {
+        refuse(String) from F to R,A;
+    }
+}
+
+S_buy_ticket = ?Request(R : role, A : role, F : role)[check(Price) from R to F].+{!Payment(R : role, A : role, F : role)[approve(Code) from F to R,A], !Refuse(R : role, A : role, F : role)}
