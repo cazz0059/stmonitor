@@ -1,7 +1,4 @@
-S_buy_ticket = ?Request(Travel).!Quote(Price).?Check(Price)[Price > 10].+{
-    !Approve(Code)[approve(Code) and (Price == 10)].!Ticket(String)[invoice(Code) and payment(Price)],
-    !Refuse(String)[refuse(String)]
-}
+https://www.sciencedirect.com/science/article/pii/S0167642317302186
 -------------------------------------------------------------
 A,F grouped together
 

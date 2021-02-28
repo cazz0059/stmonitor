@@ -1,0 +1,22 @@
+
+
+---------------------------------------------------------
+https://github.com/Munksgaard/session-types/blob/master/examples/arithmetic.rs
+
+redundant branch in square root invalid
+
+last branch was ignored since the type of the parameter is not a base type
+
+type Srv = Offer<
+    Eps,
+    Offer<
+        Recv<i64, Recv<i64, Send<i64, Var<Z>>>>,
+        Offer<
+            Recv<i64, Send<i64, Var<Z>>>,
+            Offer<
+                Recv<f64, Choose<Send<f64, Var<Z>>, Var<Z>>>,
+                Recv<fn(i64) -> bool, Recv<i64, Send<bool, Var<Z>>>>,
+            >,
+        >,
+    >,
+>;
