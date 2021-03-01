@@ -35,7 +35,8 @@ class Synth {
           parseTree.construct()
         } catch {
           case e: Exception =>
-            println("Error: " + e.getMessage)
+            logger.info("ParseTree Construction Error: " + e.getMessage)
+            return
         }
 
         val solver = new STSolver(r, path)
@@ -46,7 +47,8 @@ class Synth {
           parseTreeSolved.construct()
         } catch {
           case e: Exception =>
-            println("Error: " + e.getMessage)
+            logger.info("Solver Error: " + e.getMessage)
+            return
         }
 
 
@@ -65,14 +67,17 @@ class Synth {
           }
         } catch {
           case e: Exception =>
-            println("Error: " + e.getMessage)
+            logger.info("Interpreter Error: " + e.getMessage)
+            return
         }
 
       case parser.Error(msg, n) =>
         println("Parser Error: " + msg + " offset: "+n.offset )
+        return
 
       case parser.Failure(msg, n) =>
         println("Parser Error: " + msg + " offset: "+n.offset )
+        return
 
       case _ =>
 

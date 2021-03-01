@@ -2,7 +2,7 @@
 
 ---------------------------------------------------------------
 
-http://mrg.doc.ic.ac.uk/publications/structuring-communication-with-session-types/main.pdf page 8 fig 1
+http://mrg.doc.ic.ac.uk/publications/structuring-communication-with-session-types/main.pdf page 13 fig 5
 
 protocol ListResources(role client as cl, role resource_registry as rr) {
     request(resource_kind:String) from cl to rr;
@@ -17,3 +17,7 @@ protocol ListResources(role client as cl, role resource_registry as rr) {
         }
     }
 }
+
+THIS FEATURE WAS REMOVED : adding the uri condition instead of just assigning the type of resource and subject to URI is on purpose
+
+changed nested protocol to assertion

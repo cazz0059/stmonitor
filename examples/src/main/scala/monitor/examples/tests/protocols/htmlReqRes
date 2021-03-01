@@ -1,0 +1,22 @@
+
+
+-----------------------------------------------
+
+http://mrg.doc.ic.ac.uk/publications/structuring-communication-with-session-types/main.pdf
+pg 14 fig 6
+
+protocol RequestResponse(role Client as cl, role Server as sr) {
+    choice at cl {
+        GET() from cl to sr;
+        choice at sr {
+            sc200(s:String) from sr to cl;
+        } or {
+            sc500(reason:String) from sr to cl;
+            ...
+        } or {
+            POST() from cl to sr;
+            ...
+            ...
+        }
+    }
+}
