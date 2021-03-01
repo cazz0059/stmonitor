@@ -1,0 +1,19 @@
+
+
+---------------------------------------------------------------
+
+http://mrg.doc.ic.ac.uk/publications/structuring-communication-with-session-types/main.pdf page 8 fig 1
+
+protocol ListResources(role client as cl, role resource_registry as rr) {
+    request(resource_kind:String) from cl to rr;
+    rec loop {
+        choice at rr {
+            response(element:Format) from rr to cl;
+            continue loop;
+        }
+        or
+        {
+            completed() from rr to cl;
+        }
+    }
+}
