@@ -1,0 +1,10 @@
+package monitor.examples.tests.protocols.buyTicket
+
+import monitor.Synth
+
+object Generate {
+  def main(args: Array[String]): Unit = {
+    val synth = new Synth()
+    synth.apply(args(0), "buyTicket.st", synthMonFile = false, synthProtocolFile = false)
+  }
+}

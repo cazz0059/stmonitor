@@ -44,9 +44,9 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML = textXML ++ "</types>"
 
         if (condition != null) {
-          //textXML = textXML ++ "<condition>"
+          textXML = textXML ++ "<conditions>"
           textXML = textXML ++ conditionPT(condition)
-          //textXML = textXML ++ "</condition>"
+          textXML = textXML ++ "</conditions>"
         }
 
         textXML = textXML ++ "<continuation>"
@@ -64,9 +64,9 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML = textXML ++ "</types>"
 
         if(condition != null) {
-          //textXML = textXML ++ "<condition>"
+          textXML = textXML ++ "<conditions>"
           textXML = textXML ++ conditionPT(condition)
-          //textXML = textXML ++ "</condition>"
+          textXML = textXML ++ "</conditions>"
         }
 
         textXML = textXML ++ "<continuation>"
@@ -130,43 +130,82 @@ class STParseTree(sessionType: SessionType, name: String) {
   }
 
   def conditionPT(condition : String) : String = {
-    var textXML = "<conditions>"
+    var textXML = ""
     var condition_temp = condition
     condition_temp = condition_temp.replace("<", "&lt;")
     condition_temp = condition_temp.replace(">", "&gt;")
-    // add or
-    // add !something
-    // add !(something)
+    // add () && () //
+    // add or //
+    // add !something //
+    // add !(something) //
     // add !=
-    // add parse for <, >, <= and >= - these first to check game.st
-    if (condition_temp.contains(" && ")){
-      textXML = textXML ++ "<and>"
-      val conditions = condition_temp.split(" && ")
-      for (i <- 0 until conditions.length) {
-        textXML = textXML ++ "<condition>"
+    // add parse for <, >, <= and >= - these first to check game.st //
+    // recursion on condition
 
-        textXML = textXML ++ conditions(i)
-//        if (conditions(i).contains("<") || conditions(i).contains(">")){
-//          textXML = textXML ++ ineq(conditions(i))
-//        }
-//        else {
-//          textXML = textXML ++ conditions(i)
-//        }
-        textXML = textXML ++ "</condition>"
+    // this is wrong because of nested logical operations, cannot tell the parsing order
+    // parsing the conditions should be part of the parser
+    if (condition_temp.take(1) == "!"){
+      textXML = textXML ++ "<not>"
+      var con_temp = condition_temp
+      con_temp = con_temp.trim
+      if (con_temp.take(1) == "(" && con_temp.takeRight(1) == ")"){
+        con_temp = con_temp.drop(1).dropRight(1)
       }
-      textXML = textXML ++ "</and>"
+      textXML = textXML ++ "<condition>"
+      textXML = textXML ++ con_temp
+      textXML = textXML ++ "</condition>"
+
+      textXML = textXML ++ "</not>"
     }
+//    else if (condition_temp.contains(" && ") || condition_temp.contains("&&")){
+//      textXML = textXML ++ "<and>"
+//      val conditions = condition_temp.split("&&")
+//      for (i <- 0 until conditions.length) {
+//        var con_temp = conditions(i)
+//        con_temp = con_temp.trim
+//        if (con_temp.take(1) == "(" && con_temp.takeRight(1) == ")"){
+//          con_temp = con_temp.drop(1).dropRight(1)
+//        }
+//        textXML = textXML ++ "<condition>"
+//        textXML = textXML ++ con_temp
+//        textXML = textXML ++ "</condition>"
+//      }
+//      textXML = textXML ++ "</and>"
+//    }
+//    else if (condition_temp.contains(" || ") || condition_temp.contains("||")){
+//      textXML = textXML ++ "<or>"
+//      val conditions = condition_temp.split("||")
+//      for (i <- 0 until conditions.length) {
+//        var con_temp = conditions(i)
+//        con_temp = con_temp.trim
+//        if (con_temp.take(1) == "(" && con_temp.takeRight(1) == ")"){
+//          con_temp = con_temp.drop(1).dropRight(1)
+//        }
+//        textXML = textXML ++ "<condition>"
+//        textXML = textXML ++ con_temp
+//        textXML = textXML ++ "</condition>"
+//      }
+//      textXML = textXML ++ "</or>"
+//    }
+
     else {
       textXML = textXML ++ "<condition>"
       textXML = textXML ++ condition_temp
       textXML = textXML ++ "</condition>"
     }
-    textXML ++ "</conditions>"
+    textXML
   }
 
 //  def ineq(condition : String) : String = {
 //    var textXML = ""
 //
 //  }
+
+  //        if (conditions(i).contains("<") || conditions(i).contains(">")){
+  //          textXML = textXML ++ ineq(conditions(i))
+  //        }
+  //        else {
+  //          textXML = textXML ++ conditions(i)
+  //        }
 
 }

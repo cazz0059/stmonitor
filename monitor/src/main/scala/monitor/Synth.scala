@@ -28,6 +28,7 @@ class Synth {
     val parser = new STParser
     parser.parseAll(parser.sessionTypeVar, inputSource) match {
       case parser.Success(r, n) =>
+        println()
         logger.info("Input parsed successfully")
 
         val parseTree = new STParseTree(r, "original")
@@ -35,6 +36,7 @@ class Synth {
           parseTree.construct()
         } catch {
           case e: Exception =>
+            println()
             logger.info("ParseTree Construction Error: " + e.getMessage)
             return
         }
@@ -47,6 +49,7 @@ class Synth {
           parseTreeSolved.construct()
         } catch {
           case e: Exception =>
+            println()
             logger.info("Solver Error: " + e.getMessage)
             return
         }
@@ -67,16 +70,19 @@ class Synth {
           }
         } catch {
           case e: Exception =>
+            println()
             logger.info("Interpreter Error: " + e.getMessage)
             return
         }
 
       case parser.Error(msg, n) =>
-        println("Parser Error: " + msg + " offset: "+n.offset )
+        println()
+        logger.info("Parser Error: " + msg + " - offset: "+n.offset )
         return
 
       case parser.Failure(msg, n) =>
-        println("Parser Error: " + msg + " offset: "+n.offset )
+        println()
+        logger.info("Parser Failure: " + msg + " - offset: "+n.offset )
         return
 
       case _ =>

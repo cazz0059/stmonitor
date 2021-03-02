@@ -20,4 +20,16 @@ object util {
     return s_temp.trim().isEmpty()
 
   }
+  def approve(code : String): Boolean ={
+    true
+  }
+  def invoice(code : String): Boolean ={
+    true
+  }
+  def pay(payment : Float): Boolean ={
+    true
+  }
+  def refuse(message : String): Boolean ={
+    true
+  }
 }
