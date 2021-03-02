@@ -28,7 +28,7 @@ class STParseTree(sessionType: SessionType, name: String) {
     print("\n")//
     print(parseTree)//
     print("\n\n")//
-    XML.save(name ++ "_" ++ STname ++ "_parseTree.xml", xmlText) // it filas here
+    XML.save("examples/src/main/scala/monitor/examples/parseTrees/" ++ name ++ "_" ++ STname ++ "_parseTree.xml", xmlText)
     logger.info("XML file created")
     //logger.info("XML text created")//
   }
@@ -131,28 +131,42 @@ class STParseTree(sessionType: SessionType, name: String) {
 
   def conditionPT(condition : String) : String = {
     var textXML = "<conditions>"
+    var condition_temp = condition
+    condition_temp = condition_temp.replace("<", "&lt;")
+    condition_temp = condition_temp.replace(">", "&gt;")
     // add or
     // add !something
     // add !(something)
     // add !=
     // add parse for <, >, <= and >= - these first to check game.st
-    if (condition.contains(" && ")){
+    if (condition_temp.contains(" && ")){
       textXML = textXML ++ "<and>"
-      val conditions = condition.split(" && ")
+      val conditions = condition_temp.split(" && ")
       for (i <- 0 until conditions.length) {
         textXML = textXML ++ "<condition>"
+
         textXML = textXML ++ conditions(i)
+//        if (conditions(i).contains("<") || conditions(i).contains(">")){
+//          textXML = textXML ++ ineq(conditions(i))
+//        }
+//        else {
+//          textXML = textXML ++ conditions(i)
+//        }
         textXML = textXML ++ "</condition>"
       }
       textXML = textXML ++ "</and>"
     }
     else {
       textXML = textXML ++ "<condition>"
-      textXML = textXML ++ condition
+      textXML = textXML ++ condition_temp
       textXML = textXML ++ "</condition>"
     }
     textXML ++ "</conditions>"
   }
 
+//  def ineq(condition : String) : String = {
+//    var textXML = ""
+//
+//  }
 
 }

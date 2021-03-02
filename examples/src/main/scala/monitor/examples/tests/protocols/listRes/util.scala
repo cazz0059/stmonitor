@@ -1,4 +1,4 @@
-package monitor.examples.tests.protocols
+package monitor.examples.tests.protocols.listRes
 
 object util {
   def add(x : Int, y : Int): Boolean = {
