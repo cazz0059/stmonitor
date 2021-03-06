@@ -22,7 +22,7 @@ class STParser extends StandardTokenParsers {
 
   def choice: Parser[Statement] = positioned( receiveChoice | sendChoice ) ^^ {a=>a}
 
-  def receive: Parser[ReceiveStatement] = ("?" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> stringLit <~ "]") ~ opt("." ~> sessionType) ^^ {
+  def receive: Parser[ReceiveStatement] = ("?" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> conditions <~ "]") ~ opt("." ~> sessionType) ^^ {
     case l ~ t ~ None ~ None =>
       ReceiveStatement(l, t, null, End())
     case l ~ t ~ None ~ cT =>
@@ -45,7 +45,7 @@ class STParser extends StandardTokenParsers {
       ReceiveChoiceStatement(f"ExternalChoice${receiveChoiceCounter+=1;receiveChoiceCounter.toString}", cN)
   }
 
-  def send: Parser[SendStatement] = ("!" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> stringLit <~ "]") ~ opt("." ~> sessionType) ^^ {
+  def send: Parser[SendStatement] = ("!" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> conditions <~ "]") ~ opt("." ~> sessionType) ^^ {
     case l ~ t ~ None ~ None =>
       SendStatement(l, t, null, End())
     case l ~ t ~ None ~ cT =>
@@ -79,6 +79,46 @@ class STParser extends StandardTokenParsers {
     case i ~ cT =>
       RecursiveVar(i, cT.get)
   }
+
+  // https://gist.github.com/sofoklis/3343973 used for parsing conditions
+
+  def conditions: Parser[Expression] = repsep(term, "||") ^^ {
+    terms =>
+      for (t <- terms) {
+        t match {
+          case _: Term =>
+          case _ =>
+            throw new Exception("Not a term!")
+        }
+      }
+      Expression(terms)
+  }
+
+  def term: Parser[Term] = (repsep(not_factor, "&&")) ^^ {
+    factors =>
+      for (f <- factors) {
+        f match {
+          case _: Factor =>
+          case _ =>
+            throw new Exception("Not a factor!")
+        }
+      }
+      Term(factors)
+  }
+
+  def not_factor: Parser[NotFactor] = opt("!") ~ factor ^^ {
+    case Some(v) ~ f =>
+      NotFactor(t = true, f);
+    case None ~ f =>
+      NotFactor(t = false, f)
+  }
+
+  def variable: Parser[Variable] = stringLit ^^ {
+    v =>
+      Variable(v)
+  }
+
+  def factor: Parser[Factor] = positioned(variable | "(" ~> conditions <~ ")") ^^ {exp=>exp}
 
   def types: Parser[Map[String, String]] = repsep(typDef, ",") ^^ {
     _ toMap
