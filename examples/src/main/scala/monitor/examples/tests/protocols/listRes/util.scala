@@ -12,12 +12,4 @@ object util {
     val flag4 = !certificate.trim().isEmpty()
     return ((flag1 && flag2) && flag3) && flag4
   }
-  def checkString(s : String) : Boolean = {
-    var s_temp = s
-    while (!s_temp.trim().isEmpty()){
-      s_temp = s_temp.dropRight(1)
-    }
-    return s_temp.trim().isEmpty()
-
-  }
 }

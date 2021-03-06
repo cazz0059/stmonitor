@@ -42,7 +42,16 @@ class Synth {
         }
 
         val solver = new STSolver(r, path)
-        val rSolved = solver.run()
+        var rSolved = r
+        try {
+          rSolved = solver.run()
+        } catch {
+          case e: Exception =>
+            println()
+            logger.info("Solver Error: " + e.getMessage)
+            return
+        }
+
 
         val parseTreeSolved = new STParseTree(rSolved, "solved")
         try {
@@ -50,7 +59,7 @@ class Synth {
         } catch {
           case e: Exception =>
             println()
-            logger.info("Solver Error: " + e.getMessage)
+            logger.info("ParseTree2 Error: " + e.getMessage)
             return
         }
 

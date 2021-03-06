@@ -1,0 +1,15 @@
+https://groups.inf.ed.ac.uk/abcd/meeting-january2014/raymond-hu.pdf
+
+global protocol MyProtocol(role A , role B, role C) {
+    m1(int) from A to B;
+    rec X {
+        choice at B {
+            m2(String) from B to A;
+            continue X;
+        } or {
+            m3() from B to A;
+        }
+    }
+}
+
+the removal of this branch causes an infinite loop, send warning

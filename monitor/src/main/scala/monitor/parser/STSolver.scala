@@ -182,7 +182,7 @@ class STSolver(sessionType : SessionType, path: String){
     curScope = label
   }
 
-  private def checkAndInitVariables(label: String, types: Map[String, String], condition: String): Unit = {
+  private def checkAndInitVariables(label: String, types: Map[String, String], condition: Expression): Unit = {
     for(typ <- types) {
       scopes(curScope).variables(typ._1) = (false, typ._2)
     }
@@ -211,8 +211,11 @@ class STSolver(sessionType : SessionType, path: String){
     }
   }
 
-  def getIdentifiers(condition: String): List[String] = {
+  def getIdentifiers(condition: Expression): List[String] = {
     val conditionTree = toolbox.parse(condition)
+
+    // post exams notes
+    // this currently just gets current condition. i need to store all conditions of a trace
 
     print("CONDITION TREE\n")
     print(show(conditionTree))
@@ -226,6 +229,8 @@ class STSolver(sessionType : SessionType, path: String){
     // i can do this after i allow traverse to have more than identifiers as an attribute
     // print clauses here instead of just list of idents
     //print("\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
+
+    // maybe all the above can be done using the new models implemented?
     traverser.identifiers.distinct.filter(_ != "util")
   }
 
@@ -270,7 +275,7 @@ class STSolver(sessionType : SessionType, path: String){
   // typechecks condition
   // since this class will happen before(or during) interpreter, the conditions must be typechecked first before solving
   // debug this function to see what each step really does
-  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={ // this shouldnt return bool, it should return the clauses
+  private def checkCondition(label: String, types: Map[String, String], condition: Expression): Boolean ={ // this shouldnt return bool, it should return the clauses
     if(condition != null) {
       var stringVariables = ""
       val identifiersInCondition = getIdentifiers(condition) // will become getClauses
