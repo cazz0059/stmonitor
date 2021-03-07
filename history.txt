@@ -1,0 +1,114 @@
+    1  sudo apt-get upgrade
+    2  sudo apt-get update
+    3  cd /opt/
+    4  sudo tar -xvzf ~/Downloads/ideaIU-2020.3.3.tar.gz
+    5  sudo tar -xvzf ~/Downloads/ideaIE-2020.3.3.tar.gz
+    6  /opt/idea-IE-203.7148.100/bin/idea.sh 
+    7  sudo desktop-file-install jetbrains-idea.desktop
+    8  cd
+    9  cd /opt/
+   10  cd 
+   11  cd Desktop/
+   12  sudo desktop-file-install jetbrains-idea.desktop
+   13  sudo apt install build-essential
+   14  cd Scal
+   15  cd ScalaZ3/
+   16  git clone https://github.com/epfl-lara/ScalaZ3.git
+   17  cd
+   18  cd /usr/java/
+   19  cd /usr
+   20  ls
+   21  mkdir java
+   22  cd
+   23  ls
+   24  sudo mkdir /usr/java/
+   25  cd /usr
+   26  ls
+   27  cd java/
+   28  sudo mv jre-8u281-linux-x64.tar.gz /usr/java/
+   29  sudo mv Downloads/jre-8u281-linux-x64.tar.gz /usr/java/
+   30  cd 
+   31  sudo mv Downloads/jre-8u281-linux-x64.tar.gz /usr/java/
+   32  cd /usr/java
+   33  ls
+   34  tar zxvf jre-8u281-linux-x64.tar.gz 
+   35  sudo tar zxvf jre-8u281-linux-x64.tar.gz 
+   36  python3 --version
+   37  sudo apt-get update
+   38  sudo apt-get install software-properties-common
+   39  sudo add-apt-repository ppa:deadsnakes/ppa
+   40  sudo apt-get install python3.8
+   41  sudo apt-get install sbt
+   42  cd Dow
+   43  cd Downloads/
+   44  tar zxvf sbt-1.4.7.tgz 
+   45  sudo apt-get install sbt
+   46  cd
+   47  cd Desktop/
+   48  cd ScalaZ3/ScalaZ3/
+   49  sbt +package
+   50  cd
+   51  sdk list java
+   52  sbt --version
+   53  sudo apt-get install sbt
+   54  cd Desktop/
+   55  cd 
+   56  cd Downloads/
+   57  cd sbt/
+   58  sudo apt-get install sbt
+   59  cd -
+   60  sudo apt-get install sbt
+   61  sdk version
+   62  curl -s "https://get.sdkman.io" | bash
+   63  sudo apt install curl
+   64  curl -s "https://get.sdkman.io" | bash
+   65  source "$HOME/.sdkman/bin/sdkman-init.sh"
+   66  sdk version
+   67  sdk list java
+   68  sdk install java 11.0.4.hs-adpt
+   69  sdk install java 17.ea.11.hs-adpt
+   70  sdk list java
+   71  sdk install java 15.0.2.hs-adpt
+   72  sdk install sbt
+   73  sbt --version
+   74  cd
+   75  cd Desktop/
+   76  ll
+   77  cd ScalaZ3/
+   78  sbt +package
+   79  sbt +test
+   80  cd -
+   81  ll
+   82  mkdir stmonitor
+   83  cd stmonitor/
+   84  git clone https://github.com/cazz0059/stmonitor.git
+   85  ls
+   86  git clone https://github.com/cazz0059/stmonitor.git
+   87  git checkout feature_symb_analysis
+   88  cd stmonitor/
+   89  git checkout feature_symb_analysis 
+   90  cd Desktop/
+   91  cd stmonitor/
+   92  sbt "project examples" "runMain monitor.examples.test.Generate /home/caseya/Desktop/stmonitor/stmonitor/examples/src/main/scala/monitor/examples/test"
+   93  sbt compile
+   94  sbt "project examples" "runMain monitor.examples.test.Generate /home/caseya/Desktop/stmonitor/stmonitor/examples/src/main/scala/monitor/examples/test"
+   95  cd Desktop/
+   96  cd stmonitor/
+   97  git status
+   98  sbt compile
+   99  git status
+  100  git add monitor/src/main/scala/monitor/
+  101  git status
+  102  git commit -m "Modified parser for conditions"
+  103  git config --global user.email "casey.azzopardi.17@um.edu.mt"
+  104  git commit -m "Modified parser for conditions"
+  105  git push origin feature_symb_analysis 
+  106  cd Desktop/stmonitor/stmonitor/
+  107  sbt compile
+  108  sbt --version
+  109  sdk install sbt
+  110  sdk --version
+  111  sdk version
+  112  python --version
+  113  python3 --version
+  114  history > history.txt
