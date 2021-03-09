@@ -1,0 +1,7 @@
+two choices with conditions going to same function, but different variables
+the function is recursive as described in tests
+but one of the variables returns redundant and the other doesnt
+hence hitting two birds with one stone
+
+this doesnt count as repetition as the first branches are the same
+in addition, lemmas only save the redundant branch conditions
