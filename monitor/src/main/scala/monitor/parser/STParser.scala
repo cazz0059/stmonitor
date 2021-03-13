@@ -8,7 +8,7 @@ import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 class STParser extends StandardTokenParsers {
   lexical.reserved += ("rec", "end", "String", "Int", "Boolean")
 
-  lexical.delimiters += ("?", "!", "&", "+", "(", ")", "{", "}", ",", ":", "=", ".", "[", "]")
+  lexical.delimiters += ("?", "!", "&", "+", "(", ")", "{", "}", ",", ":", "=", ".", "[", "]", "|")
 
   private var sendChoiceCounter: Int = 0
   private var receiveChoiceCounter: Int = 0
@@ -94,7 +94,7 @@ class STParser extends StandardTokenParsers {
       Expression(terms)
   }
 
-  def term: Parser[Term] = (repsep(not_factor, "&&")) ^^ {
+  def term: Parser[Term] = repsep(not_factor, "&&") ^^ {
     factors =>
       for (f <- factors) {
         f match {

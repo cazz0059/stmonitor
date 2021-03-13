@@ -188,7 +188,7 @@ class STSolver(sessionType : SessionType, path: String){
     }
     if (condition != null){ // replace assertion function with actual assertion, basically build clauses not just identifiers
       // change scope class to hold clauses aswell
-      val identifiersInCondition = getIdentifiers(condition)
+      val identifiersInCondition = getIds(condition)
       for(ident <- identifiersInCondition){
         val identScope = searchIdent(curScope, ident)
         if(identScope != curScope) {
@@ -211,24 +211,48 @@ class STSolver(sessionType : SessionType, path: String){
     }
   }
 
-  def getIdentifiers(condition: Expression): List[String] = {
+  def getIds(condition : Expression) : List[String] = {
+    var vars = getVars(condition)
+    var identifiers = List[String]()
+    for (v <- vars) {
+      identifiers = List.concat(identifiers, getIdentifiers(v))
+    }
+    identifiers
+  }
+
+  def getVars(expression : Expression) : List[String] = {
+    var vars = List[String]()
+    for (term <- expression.terms) {
+      for (not_factor <- term.not_factors) {
+        not_factor.factor match {
+          case Expression(terms) =>
+            vars = List.concat(vars, getVars(Expression(terms)))
+          case Variable(name) =>
+            vars ::= name
+        }
+      }
+    }
+    vars
+  }
+
+  def getIdentifiers(condition: String): List[String] = {
     val conditionTree = toolbox.parse(condition)
 
     // post exams notes
     // this currently just gets current condition. i need to store all conditions of a trace
 
-    print("CONDITION TREE\n")
+    print("~~~ CONDITION TREE ~~~\n")
     print(show(conditionTree))
     print("\n")
     print(showRaw(conditionTree))
-    print("\n\n")
+    print("\n")
 
     val traverser = new traverser
     traverser.traverse(conditionTree)
     //print("\n" ++ traverser. ++ "\n\n") // see what more i can do with this traversed tree
     // i can do this after i allow traverse to have more than identifiers as an attribute
     // print clauses here instead of just list of idents
-    //print("\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
+    print("To Return:\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
 
     // maybe all the above can be done using the new models implemented?
     traverser.identifiers.distinct.filter(_ != "util")
@@ -278,7 +302,7 @@ class STSolver(sessionType : SessionType, path: String){
   private def checkCondition(label: String, types: Map[String, String], condition: Expression): Boolean ={ // this shouldnt return bool, it should return the clauses
     if(condition != null) {
       var stringVariables = ""
-      val identifiersInCondition = getIdentifiers(condition) // will become getClauses
+      val identifiersInCondition = getIds(condition) // will become getClauses
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
       val util = try source.mkString finally source.close()
       for(identName <- identifiersInCondition){

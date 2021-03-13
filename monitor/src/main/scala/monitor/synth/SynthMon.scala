@@ -317,6 +317,64 @@ class SynthMon(sessionTypeInterpreter: STInterpreter, path: String) {
     }
   }
 
+  ////////////////////////////////////////////
+
+  private def notFactorToString(not_factor : NotFactor): String = {
+    var stringCondition = ""
+
+    if (not_factor.t) {
+      stringCondition = stringCondition ++ " not"
+    }
+    stringCondition = stringCondition ++ " "
+    not_factor.factor match {
+      case Expression(terms) =>
+        stringCondition = stringCondition ++ conditionToString(Expression(terms))
+      case Variable(name) =>
+        stringCondition = stringCondition ++ name
+    }
+
+    stringCondition
+  }
+
+  private def termToString(term : Term): String = {
+    var stringCondition = ""
+
+    val not_factors = term.not_factors
+    if (not_factors.length > 1) {
+      for (not_factor <- not_factors) {
+        stringCondition = stringCondition ++ "("
+        stringCondition = stringCondition ++ notFactorToString(not_factor)
+        stringCondition = stringCondition ++ ") && "
+      }
+      stringCondition.dropRight(3) // removing last and
+    }
+    else {
+      stringCondition = stringCondition ++ notFactorToString(not_factors.head)
+    }
+    stringCondition
+  }
+
+  private def conditionToString(expression : Expression) : String ={
+    var stringCondition = ""
+    val terms = expression.terms
+    if (terms.length > 1) {
+      for (term <- terms) {
+        stringCondition = stringCondition ++ "("
+        stringCondition = stringCondition ++ termToString(term)
+        stringCondition = stringCondition ++ ") || "
+      }
+      stringCondition.dropRight(3) // removing last or
+    }
+    else {
+      stringCondition = stringCondition ++ termToString(terms.head)
+    }
+
+    stringCondition
+  }
+
+  ////////////////////////////////////////////
+
+
   /**
    * Generates the code for conditions by identifying identifiers and changing them for the
    * respective variable within the monitor.
@@ -324,10 +382,11 @@ class SynthMon(sessionTypeInterpreter: STInterpreter, path: String) {
    * @param condition Condition in String format.
    * @param label The label of the current statment.
    */
-  private def handleCondition(condition: String, label: String): Unit ={
+
+  private def handleCondition(condition: Expression, label: String): Unit ={
     mon.append("        if(")
-    var stringCondition = condition
-    val identifierNames = sessionTypeInterpreter.getIdentifiers(condition)
+    var stringCondition = conditionToString(condition)
+    val identifierNames = sessionTypeInterpreter.getIds(condition)
     for(identName <- identifierNames){
       val varScope = sessionTypeInterpreter.searchIdent(label, identName)
       val identPattern = ("\\b"+identName+"\\b").r

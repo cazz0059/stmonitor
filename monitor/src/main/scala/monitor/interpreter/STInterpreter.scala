@@ -232,12 +232,12 @@ class STInterpreter(sessionType: SessionType, path: String) {
    *              the current statement).
    * @param condition The condition of the current statement.
    */
-  private def checkAndInitVariables(label: String, types: Map[String, String], condition: String): Unit ={
+  private def checkAndInitVariables(label: String, types: Map[String, String], condition: Expression): Unit ={
     for(typ <- types) {
       scopes(curScope).variables(typ._1) = (false, typ._2)
     }
     if (condition != null){
-      val identifiersInCondition = getIdentifiers(condition)
+      val identifiersInCondition = getIds(condition)
       for(ident <- identifiersInCondition){
         val identScope = searchIdent(curScope, ident)
         if(identScope != curScope) {
@@ -286,6 +286,34 @@ class STInterpreter(sessionType: SessionType, path: String) {
     }
   }
 
+  //////////////////////////////////
+
+  def getIds(condition : Expression) : List[String] = {
+    val vars = getVars(condition)
+    var identifiers = List[String]()
+    for (v <- vars) {
+      identifiers = List.concat(identifiers, getIdentifiers(v))
+    }
+    identifiers
+  }
+
+  def getVars(expression : Expression) : List[String] = {
+    var vars = List[String]()
+    for (term <- expression.terms) {
+      for (not_factor <- term.not_factors) {
+        not_factor.factor match {
+          case Expression(terms) =>
+            vars = List.concat(vars, getVars(Expression(terms)))
+          case Variable(name) =>
+            vars ::= name
+        }
+      }
+    }
+    vars
+  }
+
+  //////////////////////////////////
+
   /**
    * Parses a string to obtain a Scala parse tree which is passed to the traverse function in the traverser
    * and returns the distinct identifiers of the traverser excluding util since it represents the file
@@ -314,10 +342,10 @@ class STInterpreter(sessionType: SessionType, path: String) {
    * @param condition The condition to type-check.
    * @return The whether the condition is of type boolean or not.
    */
-  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={
+  private def checkCondition(label: String, types: Map[String, String], condition: Expression): Boolean ={
     if(condition != null) {
       var stringVariables = ""
-      val identifiersInCondition = getIdentifiers(condition)
+      val identifiersInCondition = getIds(condition)
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
       val util = try source.mkString finally source.close()
       for(identName <- identifiersInCondition){
