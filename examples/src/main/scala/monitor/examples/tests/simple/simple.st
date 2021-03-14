@@ -1,0 +1,1 @@
+ST_Simple = +{!Send(x : Bool)[x].&{?ReceiveYes()[x], ?ReceiveNo()[!x]}}

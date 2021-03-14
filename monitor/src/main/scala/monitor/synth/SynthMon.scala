@@ -320,6 +320,7 @@ class SynthMon(sessionTypeInterpreter: STInterpreter, path: String) {
   ////////////////////////////////////////////
 
   private def notFactorToString(not_factor : NotFactor): String = {
+    //println(" - notFactorToString")
     var stringCondition = ""
 
     if (not_factor.t) {
@@ -337,6 +338,7 @@ class SynthMon(sessionTypeInterpreter: STInterpreter, path: String) {
   }
 
   private def termToString(term : Term): String = {
+    //println(" - termToString")
     var stringCondition = ""
 
     val not_factors = term.not_factors
@@ -348,13 +350,14 @@ class SynthMon(sessionTypeInterpreter: STInterpreter, path: String) {
       }
       stringCondition.dropRight(3) // removing last and
     }
-    else {
+    else if (not_factors.length == 1) {
       stringCondition = stringCondition ++ notFactorToString(not_factors.head)
     }
     stringCondition
   }
 
   private def conditionToString(expression : Expression) : String ={
+    //println(" - conditionToString")
     var stringCondition = ""
     val terms = expression.terms
     if (terms.length > 1) {
@@ -365,7 +368,7 @@ class SynthMon(sessionTypeInterpreter: STInterpreter, path: String) {
       }
       stringCondition.dropRight(3) // removing last or
     }
-    else {
+    else if (terms.length == 1) {
       stringCondition = stringCondition ++ termToString(terms.head)
     }
 

@@ -43,7 +43,7 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML = textXML ++ typesPT(types)
         textXML = textXML ++ "</types>"
 
-        if (condition != null) {
+        if (condition.terms.nonEmpty) {
           textXML = textXML ++ "<conditions>"
           textXML = textXML ++ expressionPT(condition)
           textXML = textXML ++ "</conditions>"
@@ -63,7 +63,7 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML = textXML ++ typesPT(types)
         textXML = textXML ++ "</types>"
 
-        if(condition != null) {
+        if(condition.terms.nonEmpty) {
           textXML = textXML ++ "<conditions>"
           textXML = textXML ++ expressionPT(condition)
           textXML = textXML ++ "</conditions>"

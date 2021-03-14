@@ -16,21 +16,23 @@ class STSolver(sessionType : SessionType, path: String){
 
   // modify original session type
 
-  val logger = Logger("STSolver")
+  val logger: Logger = Logger("STSolver")
 
   private val toolbox = currentMirror.mkToolBox()
+
+  private val helper = new STSolverHelper()
 
   private var scopes = new mutable.HashMap[String, Scope]()
   private var curScope = "global"
   scopes(curScope) = new Scope("global", null)
 
-  private var branches = new mutable.HashMap[Statement, String]()
+  //private var branches = new mutable.HashMap[Statement, String]()
 
   def getRecursiveVarScope(recursiveVar: RecursiveVar): Scope = {
     checkRecVariable(scopes(curScope), recursiveVar)
   }
 
-  def getCurScope(): String ={
+  def getCurScope: String ={
     curScope
   }
 
@@ -39,16 +41,17 @@ class STSolver(sessionType : SessionType, path: String){
   }
 
   def run() : SessionType = {
-    sessionType.statement match { // this part might all be useless
-      case recursiveStatement: RecursiveStatement =>
-        var tmpStatement: Statement = null
-        while(tmpStatement.isInstanceOf[RecursiveStatement]){
-          tmpStatement = recursiveStatement.body
-        }
-        checkStatement(recursiveStatement.body) // check if this is the right method, because in interpreter it is that monitor is initialised, not the whole statement checked
-      case _ =>
-        checkStatement(sessionType.statement) // same here
-    }
+//    sessionType.statement match { // this part might all be useless
+//      case recursiveStatement: RecursiveStatement =>
+//        var tmpStatement: Statement = null
+//        while(tmpStatement.isInstanceOf[RecursiveStatement]){
+//          tmpStatement = recursiveStatement.body
+//        }
+//        checkStatement(recursiveStatement.body) // check if this is the right method, because in interpreter it is that
+//                                                // monitor is initialised, not the whole statement checked
+//      case _ =>
+//        checkStatement(sessionType.statement) // same here
+//    }
 
     initialWalk(sessionType.statement)
     curScope = "global"
@@ -60,9 +63,9 @@ class STSolver(sessionType : SessionType, path: String){
   def initialWalk(root: Statement): Unit = {
     root match {
       case ReceiveStatement(label, types, condition, continuation) =>
-        createAndUpdateScope(label)
-        checkAndInitVariables(label, types, condition)
-        handlePayloads(label, types)
+        createAndUpdateScope(label) // creates new scope
+        checkAndInitVariables(label, types, condition) // puts vars in scopes
+        handlePayloads(label, types) // synths variables in monitor
         initialWalk(continuation)
 
       case SendStatement(label, types, condition, continuation) =>
@@ -106,8 +109,14 @@ class STSolver(sessionType : SessionType, path: String){
   def walk(statement: Statement): Unit = {
     statement match {
       case statement @ ReceiveStatement(label, types, condition, _) =>
+        println()
         logger.info("Receive "+label+"("+types+")")
+        println()
         curScope = label
+        // get current conditions and make them into clauses
+        // add them to the set of condition clauses by getting set in prev scope and adding current to these
+        // check the satisfiability of the clauses
+        // if redundant, move ot the next functions below
         checkCondition(label, types, condition)
 
         // "rebuild parse tree" functions here
@@ -115,7 +124,9 @@ class STSolver(sessionType : SessionType, path: String){
         walk(statement.continuation)
 
       case statement @ SendStatement(label, types, condition, _) =>
+        println()
         logger.info("Send "+label+"("+types+")")
+        println()
         curScope = label
         checkCondition(label, types, condition)
 
@@ -123,7 +134,9 @@ class STSolver(sessionType : SessionType, path: String){
         walk(statement.continuation)
 
       case statement @ ReceiveChoiceStatement(label, choices) =>
+        println()
         logger.info("Receive Choice Statement "+label+"{"+choices+"}")
+        println()
         curScope = label
         handleReceiveChoice(statement)
 
@@ -137,7 +150,9 @@ class STSolver(sessionType : SessionType, path: String){
         }
 
       case statement @ SendChoiceStatement(label, choices) =>
+        println()
         logger.info("Send Choice Statement "+label+"{"+choices+"}")
+        println()
         curScope = label
         handleSendChoice(statement)
 
@@ -151,11 +166,15 @@ class STSolver(sessionType : SessionType, path: String){
         }
 
       case statement @ RecursiveStatement(label, body) =>
+        println()
         logger.info("Recursive statement with variable "+label+" and body: " +body)
+        println()
         walk(statement.body)
 
       case statement @ RecursiveVar(name, continuation) =>
+        println()
         logger.info("Recursive variable "+name)
+        println()
         checkRecVariable(scopes(curScope), statement)
         walk(statement.continuation)
 
@@ -186,8 +205,8 @@ class STSolver(sessionType : SessionType, path: String){
     for(typ <- types) {
       scopes(curScope).variables(typ._1) = (false, typ._2)
     }
-    if (condition != null){ // replace assertion function with actual assertion, basically build clauses not just identifiers
-      // change scope class to hold clauses aswell
+    if (condition.terms.nonEmpty){ // replace assertion function with actual assertion, basically build clauses not just identifiers
+      // change scope class to hold clauses as well
       val identifiersInCondition = getIds(condition)
       for(ident <- identifiersInCondition){
         val identScope = searchIdent(curScope, ident)
@@ -282,6 +301,8 @@ class STSolver(sessionType : SessionType, path: String){
     mon.append("\t\t}\n")
   }
 
+
+
   /**
    * Type checks a condition of type String using the scala compiler. First, the identifiers are extracted
    * from the condition. Their type is then retrieved and appended to a string as variable declarations. The contents
@@ -296,11 +317,12 @@ class STSolver(sessionType : SessionType, path: String){
    * @return The whether the condition is of type boolean or not.
    */
 
+
   // typechecks condition
   // since this class will happen before(or during) interpreter, the conditions must be typechecked first before solving
   // debug this function to see what each step really does
   private def checkCondition(label: String, types: Map[String, String], condition: Expression): Boolean ={ // this shouldnt return bool, it should return the clauses
-    if(condition != null) {
+    if(condition.terms.nonEmpty) {
       var stringVariables = ""
       val identifiersInCondition = getIds(condition) // will become getClauses
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
@@ -310,11 +332,12 @@ class STSolver(sessionType : SessionType, path: String){
         stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
       }
       print("\nString Variables >>> " ++ stringVariables ++ "\n\n")
+      val stringCondition = helper.conditionToString(condition)
 
       val eval = s"""
                     |$util
                     |$stringVariables
-                    |$condition
+                    |$stringCondition
                     |""".stripMargin
       val tree = toolbox.parse(eval) // research on what toolbox does and what these functions do
       val checked = toolbox.typecheck(tree)
@@ -326,9 +349,9 @@ class STSolver(sessionType : SessionType, path: String){
     solver() // solver goes in here
   }
 
-  def checkStatement(statement: Statement) : Unit = {
-
-  }
+//  def checkStatement(statement: Statement) : Unit = {
+//
+//  }
 
   def solver(): Boolean ={
     //val z3 = new Z3Context("MODEL" -> true)

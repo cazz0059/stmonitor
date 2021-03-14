@@ -166,6 +166,8 @@ class STInterpreter(sessionType: SessionType, path: String) {
         synthMon.handleSendChoice(statement)
         synthProtocol.handleSendChoice(statement.label)
 
+        println(" - send choice statement")
+
         for(choice <- choices) {
           curScope = choice.asInstanceOf[SendStatement].label
           checkCondition(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
@@ -236,7 +238,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
     for(typ <- types) {
       scopes(curScope).variables(typ._1) = (false, typ._2)
     }
-    if (condition != null){
+    if (condition.terms.nonEmpty){
       val identifiersInCondition = getIds(condition)
       for(ident <- identifiersInCondition){
         val identScope = searchIdent(curScope, ident)
@@ -329,6 +331,66 @@ class STInterpreter(sessionType: SessionType, path: String) {
     traverser.identifiers.distinct.filter(_ != "util")
   }
 
+  ////////////////////////////////////////////
+
+  private def notFactorToString(not_factor : NotFactor): String = {
+    //println(" - notFactorToString")
+    var stringCondition = ""
+
+    if (not_factor.t) {
+      stringCondition = stringCondition ++ " not"
+    }
+    stringCondition = stringCondition ++ " "
+    not_factor.factor match {
+      case Expression(terms) =>
+        stringCondition = stringCondition ++ conditionToString(Expression(terms))
+      case Variable(name) =>
+        stringCondition = stringCondition ++ name
+    }
+
+    stringCondition
+  }
+
+  private def termToString(term : Term): String = {
+    //println(" - termToString")
+    var stringCondition = ""
+
+    val not_factors = term.not_factors
+    if (not_factors.length > 1) {
+      for (not_factor <- not_factors) {
+        stringCondition = stringCondition ++ "("
+        stringCondition = stringCondition ++ notFactorToString(not_factor)
+        stringCondition = stringCondition ++ ") && "
+      }
+      stringCondition.dropRight(3) // removing last and
+    }
+    else if (not_factors.length == 1){
+      stringCondition = stringCondition ++ notFactorToString(not_factors.head)
+    }
+    stringCondition
+  }
+
+  private def conditionToString(expression : Expression) : String ={
+    //println(" - conditionToString")
+    var stringCondition = ""
+    val terms = expression.terms
+    if (terms.length > 1) {
+      for (term <- terms) {
+        stringCondition = stringCondition ++ "("
+        stringCondition = stringCondition ++ termToString(term)
+        stringCondition = stringCondition ++ ") || "
+      }
+      stringCondition.dropRight(3) // removing last or
+    }
+    else  if (terms.length == 1) {
+      stringCondition = stringCondition ++ termToString(terms.head)
+    }
+
+    stringCondition
+  }
+
+  ////////////////////////////////////////////
+
   /**
    * Type checks a condition of type String using the scala compiler. First, the identifiers are extracted
    * from the condition. Their type is then retrieved and appended to a string as variable declarations. The contents
@@ -343,7 +405,8 @@ class STInterpreter(sessionType: SessionType, path: String) {
    * @return The whether the condition is of type boolean or not.
    */
   private def checkCondition(label: String, types: Map[String, String], condition: Expression): Boolean ={
-    if(condition != null) {
+    if(condition.terms.nonEmpty) {
+      println(" - checking condition")
       var stringVariables = ""
       val identifiersInCondition = getIds(condition)
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
@@ -352,10 +415,12 @@ class STInterpreter(sessionType: SessionType, path: String) {
         val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
         stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
       }
+      val stringCondition = conditionToString(condition)
+
       val eval = s"""
            |$util
            |$stringVariables
-           |$condition
+           |$stringCondition
            |""".stripMargin
       val tree = toolbox.parse(eval)
       val checked = toolbox.typecheck(tree)

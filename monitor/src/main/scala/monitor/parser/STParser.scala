@@ -24,9 +24,9 @@ class STParser extends StandardTokenParsers {
 
   def receive: Parser[ReceiveStatement] = ("?" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> conditions <~ "]") ~ opt("." ~> sessionType) ^^ {
     case l ~ t ~ None ~ None =>
-      ReceiveStatement(l, t, null, End())
+      ReceiveStatement(l, t, Expression(Nil), End())
     case l ~ t ~ None ~ cT =>
-      ReceiveStatement(l, t, null, cT.get)
+      ReceiveStatement(l, t, Expression(Nil), cT.get)
     case l ~ t ~ c ~ None =>
       ReceiveStatement(l, t, c.get, End())
     case l ~ t ~ c ~ cT =>
@@ -47,9 +47,9 @@ class STParser extends StandardTokenParsers {
 
   def send: Parser[SendStatement] = ("!" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> conditions <~ "]") ~ opt("." ~> sessionType) ^^ {
     case l ~ t ~ None ~ None =>
-      SendStatement(l, t, null, End())
+      SendStatement(l, t, Expression(Nil), End())
     case l ~ t ~ None ~ cT =>
-      SendStatement(l, t, null, cT.get)
+      SendStatement(l, t, Expression(Nil), cT.get)
     case l ~ t ~ c ~ None =>
       SendStatement(l, t, c.get, End())
     case l ~ t ~ c ~ cT =>
@@ -95,15 +95,15 @@ class STParser extends StandardTokenParsers {
   }
 
   def term: Parser[Term] = repsep(not_factor, "&&") ^^ {
-    factors =>
-      for (f <- factors) {
+    not_factors =>
+      for (f <- not_factors) {
         f match {
-          case _: Factor =>
+          case _: NotFactor =>
           case _ =>
             throw new Exception("Not a factor!")
         }
       }
-      Term(factors)
+      Term(not_factors)
   }
 
   def not_factor: Parser[NotFactor] = opt("!") ~ factor ^^ {
