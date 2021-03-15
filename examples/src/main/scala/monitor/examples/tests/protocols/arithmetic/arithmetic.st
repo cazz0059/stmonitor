@@ -1,14 +1,14 @@
 S_arithmetic = &{
     ?Add(x : Int, y : Int)[util.add(x : Int, y : Int)].+{
         !Answer(z : Int)[z == x+y],
-        !Invalid(z : Int)[(z < x) || (z < y)]
+        !Invalid(z : Int)[(z < x) or (z < y)]
     },
-    ?Negate(x : Bool)[!(x==0)].+{
+    ?Negate(x : Bool)[not(x==0)].+{
         !Answer(z : Int)[z == -x],
         !Invalid()[x == 0]
     },
     ?Sqrt(x : Float)[x > 0].+{
-        !Answer(y : Float)[(x >= 0) && (y == x.sqrt())],
+        !Answer(y : Float)[(x >= 0) and (y == x.sqrt())],
         !Invalid()[x < 0]
     }
 }

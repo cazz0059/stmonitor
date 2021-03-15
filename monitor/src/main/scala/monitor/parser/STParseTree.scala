@@ -21,22 +21,23 @@ class STParseTree(sessionType: SessionType, name: String) {
     textXML = textXML ++ statementPT(sessionType.statement)
     textXML = textXML ++ "</" ++ STname ++ ">"
 
-    print("\n" ++ textXML ++ "\n\n")//
+    //print("\n" ++ textXML ++ "\n\n")//
 
     val xmlText = XML.loadString(textXML)
     val parseTree = new PrettyPrinter(150, 4).format(xmlText)
-    print("\n")//
-    print(parseTree)//
-    print("\n\n")//
+//    print("\n")//
+//    print(parseTree)//
+//    print("\n\n")//
     XML.save("examples/src/main/scala/monitor/examples/parseTrees/" ++ name ++ "_" ++ STname ++ "_parseTree.xml", xmlText)
     logger.info("XML file created")
+    println()
     //logger.info("XML text created")//
   }
 
   def statementPT(root : Statement) : String = {
     root match {
       case ReceiveStatement(label, types, condition, continuation) =>
-        logger.info("ReceiveStatement" ++ label)//
+        //logger.info("ReceiveStatement" ++ label)//
         var textXML = "<receive_" ++ label ++ ">"
 
         textXML = textXML ++ "<types>"
@@ -56,7 +57,7 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML ++ "</receive_" ++ label ++ ">"
 
       case SendStatement(label, types, condition, continuation) =>
-        logger.info("SendStatement " ++ label)//
+        //logger.info("SendStatement " ++ label)//
         var textXML = "<send_" ++ label ++ ">"
 
         textXML = textXML ++ "<types>"
@@ -76,7 +77,7 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML ++ "</send_" ++ label ++ ">"
 
       case ReceiveChoiceStatement(label, choices) =>
-        logger.info("ReceiveChoiceStatement")//
+        //logger.info("ReceiveChoiceStatement")//
         var textXML = "<branch_" ++ label ++ ">"
 
         for (choice <- choices) {
@@ -88,7 +89,7 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML ++ "</branch_" ++ label ++ ">"
 
       case SendChoiceStatement(label, choices) =>
-        logger.info("SendChoiceStatement")//
+        //logger.info("SendChoiceStatement")//
         var textXML = "<selection_" ++ label ++ ">"
 
         for (choice <- choices) {
@@ -100,19 +101,19 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML ++ "</selection_" ++ label ++ ">"
 
       case RecursiveStatement(label, body) =>
-        logger.info("Recursive Statement")//
+        //logger.info("Recursive Statement")//
         var textXML = "<recursion_" ++ label ++ ">"
         textXML = textXML ++ statementPT(body)
         textXML ++ "</recursion_" ++ label ++ ">"
 
       case RecursiveVar(name, continuation) =>
-        logger.info("RecursiveVarStatement")//
+        //logger.info("RecursiveVarStatement")//
         var textXML = "<recursionVar_" ++ name ++ ">"
         textXML = textXML ++ statementPT(continuation)
         textXML ++ "</recursionVar_" ++ name ++ ">"
 
       case End() =>
-        logger.info("End")//
+        //logger.info("End")//
         ""
 
       case _ =>
@@ -219,14 +220,12 @@ class STParseTree(sessionType: SessionType, name: String) {
   def factorPT(factor: Factor) : String = {
     factor match {
       case Expression(terms) =>
-        var textXML = ""
-        textXML ++ expressionPT(Expression(terms))
+        expressionPT(Expression(terms))
       case Variable(name) =>
-        var textXML = ""
         var name_temp = name
         name_temp = name_temp.replace("<", "&lt;")
         name_temp = name_temp.replace(">", "&gt;")
-        textXML ++ name_temp
+        name_temp
     }
   } // see where arrange the < and > in string
 

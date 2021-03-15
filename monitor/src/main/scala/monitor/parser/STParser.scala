@@ -6,9 +6,9 @@ import scala.language.postfixOps
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 
 class STParser extends StandardTokenParsers {
-  lexical.reserved += ("rec", "end", "String", "Int", "Boolean")
+  lexical.reserved += ("rec", "end", "String", "Int", "Boolean", "and", "or", "not")
 
-  lexical.delimiters += ("?", "!", "&", "+", "(", ")", "{", "}", ",", ":", "=", ".", "[", "]", "|")
+  lexical.delimiters += ("?", "!", "&", "+", "(", ")", "{", "}", ",", ":", "=", ".", "[", "]") // , "|"
 
   private var sendChoiceCounter: Int = 0
   private var receiveChoiceCounter: Int = 0
@@ -82,7 +82,7 @@ class STParser extends StandardTokenParsers {
 
   // https://gist.github.com/sofoklis/3343973 used for parsing conditions
 
-  def conditions: Parser[Expression] = repsep(term, "||") ^^ {
+  def conditions: Parser[Expression] = rep1sep(term, "or") ^^ {
     terms =>
       for (t <- terms) {
         t match {
@@ -94,7 +94,7 @@ class STParser extends StandardTokenParsers {
       Expression(terms)
   }
 
-  def term: Parser[Term] = repsep(not_factor, "&&") ^^ {
+  def term: Parser[Term] = rep1sep(not_factor, "and") ^^ {
     not_factors =>
       for (f <- not_factors) {
         f match {
@@ -106,8 +106,8 @@ class STParser extends StandardTokenParsers {
       Term(not_factors)
   }
 
-  def not_factor: Parser[NotFactor] = opt("!") ~ factor ^^ {
-    case Some(v) ~ f =>
+  def not_factor: Parser[NotFactor] = opt("not") ~ factor ^^ {
+    case Some("not") ~ f =>
       NotFactor(t = true, f);
     case None ~ f =>
       NotFactor(t = false, f)

@@ -55,6 +55,9 @@ class STSolver(sessionType : SessionType, path: String){
 
     initialWalk(sessionType.statement)
     curScope = "global"
+    println()
+    logger.info("Initial Walk Complete")
+    println()
 
     walk(sessionType.statement)
     sessionType
@@ -261,8 +264,9 @@ class STSolver(sessionType : SessionType, path: String){
     // this currently just gets current condition. i need to store all conditions of a trace
 
     print("~~~ CONDITION TREE ~~~\n")
+    print(" - Normal\n")
     print(show(conditionTree))
-    print("\n")
+    print("\n - Raw\n")
     print(showRaw(conditionTree))
     print("\n")
 
@@ -271,7 +275,7 @@ class STSolver(sessionType : SessionType, path: String){
     //print("\n" ++ traverser. ++ "\n\n") // see what more i can do with this traversed tree
     // i can do this after i allow traverse to have more than identifiers as an attribute
     // print clauses here instead of just list of idents
-    print("To Return:\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
+    print(" - To Return:\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
 
     // maybe all the above can be done using the new models implemented?
     traverser.identifiers.distinct.filter(_ != "util")
@@ -321,18 +325,27 @@ class STSolver(sessionType : SessionType, path: String){
   // typechecks condition
   // since this class will happen before(or during) interpreter, the conditions must be typechecked first before solving
   // debug this function to see what each step really does
-  private def checkCondition(label: String, types: Map[String, String], condition: Expression): Boolean ={ // this shouldnt return bool, it should return the clauses
+  // was returning boolean, returning unit for now
+  private def checkCondition(label: String, types: Map[String, String], condition: Expression): Unit ={ // this shouldnt return bool, it should return the clauses
     if(condition.terms.nonEmpty) {
       var stringVariables = ""
+
       val identifiersInCondition = getIds(condition) // will become getClauses
+
+      // getting util file contents
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
       val util = try source.mkString finally source.close()
+
       for(identName <- identifiersInCondition){
         val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
-        stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
+        stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;\n"
       }
-      print("\nString Variables >>> " ++ stringVariables ++ "\n\n")
+
       val stringCondition = helper.conditionToString(condition)
+
+      println("\n ~ Util >>>\n " ++ util ++ "\n<<<")
+      println("\n ~ String Variables >>>\n " ++ stringVariables ++ "\n<<<")
+      println("\n ~ String Condition >>>\n " ++ stringCondition ++ "\n<<<")
 
       val eval = s"""
                     |$util
@@ -340,13 +353,22 @@ class STSolver(sessionType : SessionType, path: String){
                     |$stringCondition
                     |""".stripMargin
       val tree = toolbox.parse(eval) // research on what toolbox does and what these functions do
+      println("\n ~ Tree >>>\n " ++ tree.toString() ++ "\n<<<")
       val checked = toolbox.typecheck(tree)
-      checked.tpe == Boolean
+      println("\n ~ Checked >>>\n " ++ checked.toString() ++ "\n<<<")
+      //checked.tpe == Boolean
+
+      println()
+      val cnf = helper.getCurrentConditions(condition)
+      helper.cnfToString(cnf)
+
+      // after checking type do the things to do for condition calculating and saving
+      // no what, there s nothing to calculate
+      // see steps in evernote
+      solver() // solver goes in here
+
     }
-    // after checking type do the things to do for condition calculating and saving
-    // no what, there s nothing to calculate
-    // see steps in evernote
-    solver() // solver goes in here
+
   }
 
 //  def checkStatement(statement: Statement) : Unit = {
@@ -358,6 +380,7 @@ class STSolver(sessionType : SessionType, path: String){
     true // this returns sat/unsat?
   }
 
+  // REBUILDING PARSE TREE
   // check out synthmon/synthprotocol setup for these functions
   def handleReceive(statement: ReceiveStatement, nextStatement: Statement): Unit = {
 

@@ -63,6 +63,8 @@ class STInterpreter(sessionType: SessionType, path: String) {
     curScope = "global"
     synthMon.endInit()
 
+    logger.info("Initial Walk Complete")
+
     walk(sessionType.statement)
     synthMon.end()
     synthProtocol.end()
@@ -128,7 +130,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
   def walk(statement: Statement): Unit = {
     statement match {
       case statement @ ReceiveStatement(label, types, condition, _) =>
-        logger.info("Receive "+label+"("+types+")")
+        //logger.info("Receive "+label+"("+types+")")
         curScope = label
         checkCondition(label, types, condition)
 
@@ -137,7 +139,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
         walk(statement.continuation)
 
       case statement @ SendStatement(label, types, condition, _) =>
-        logger.info("Send "+label+"("+types+")")
+        //logger.info("Send "+label+"("+types+")")
         curScope = label
         checkCondition(label, types, condition)
 
@@ -146,7 +148,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
         walk(statement.continuation)
 
       case statement @ ReceiveChoiceStatement(label, choices) =>
-        logger.info("Receive Choice Statement "+label+"{"+choices+"}")
+        //logger.info("Receive Choice Statement "+label+"{"+choices+"}")
         curScope = label
         synthMon.handleReceiveChoice(statement)
         synthProtocol.handleReceiveChoice(statement.label)
@@ -161,7 +163,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
         }
 
       case statement @ SendChoiceStatement(label, choices) =>
-        logger.info("Send Choice Statement "+label+"{"+choices+"}")
+        //logger.info("Send Choice Statement "+label+"{"+choices+"}")
         curScope = label
         synthMon.handleSendChoice(statement)
         synthProtocol.handleSendChoice(statement.label)
@@ -178,11 +180,11 @@ class STInterpreter(sessionType: SessionType, path: String) {
         }
 
       case statement @ RecursiveStatement(label, body) =>
-        logger.info("Recursive statement with variable "+label+" and body: " +body)
+        //logger.info("Recursive statement with variable "+label+" and body: " +body)
         walk(statement.body)
 
       case statement @ RecursiveVar(name, continuation) =>
-        logger.info("Recursive variable "+name)
+        //logger.info("Recursive variable "+name)
         checkRecVariable(scopes(curScope), statement)
         walk(statement.continuation)
 

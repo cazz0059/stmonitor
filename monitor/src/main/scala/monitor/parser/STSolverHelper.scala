@@ -1,18 +1,18 @@
 package monitor.parser
 
-import scala.collection.mutable
-import scala.reflect.runtime._
-import scala.reflect.runtime.universe._
-import scala.tools.reflect.ToolBox
+//import scala.collection.mutable
+//import scala.reflect.runtime._
+//import scala.reflect.runtime.universe._
+//import scala.tools.reflect.ToolBox
 
 import monitor.model._
-import monitor.model.Scope
+//import monitor.model.Scope
 
 class STSolverHelper {
 
   ////////////////////////////////////////////
 
-  def notFactorToString(not_factor : NotFactor): String = {
+  def conditionToString(not_factor : NotFactor): String = {
     var stringCondition = ""
 
     if (not_factor.t) {
@@ -29,20 +29,20 @@ class STSolverHelper {
     stringCondition
   }
 
-  def termToString(term : Term): String = {
+  def conditionToString(term : Term): String = {
     var stringCondition = ""
 
     val not_factors = term.not_factors
     if (not_factors.length > 1) {
       for (not_factor <- not_factors) {
         stringCondition = stringCondition ++ "("
-        stringCondition = stringCondition ++ notFactorToString(not_factor)
+        stringCondition = stringCondition ++ conditionToString(not_factor)
         stringCondition = stringCondition ++ ") && "
       }
       stringCondition.dropRight(3) // removing last and
     }
     else if (not_factors.length == 1){
-      stringCondition = stringCondition ++ notFactorToString(not_factors.head)
+      stringCondition = stringCondition ++ conditionToString(not_factors.head)
     }
     stringCondition
   }
@@ -53,13 +53,13 @@ class STSolverHelper {
     if (terms.length > 1) {
       for (term <- terms) {
         stringCondition = stringCondition ++ "("
-        stringCondition = stringCondition ++ termToString(term)
+        stringCondition = stringCondition ++ conditionToString(term)
         stringCondition = stringCondition ++ ") || "
       }
       stringCondition.dropRight(3) // removing last or
     }
     else if (terms.length == 1) {
-      stringCondition = stringCondition ++ termToString(terms.head)
+      stringCondition = stringCondition ++ conditionToString(terms.head)
     }
 
     stringCondition
@@ -97,16 +97,18 @@ class STSolverHelper {
     Expression(List(term)) // normal negation
   }
 
-  def mergeCNF(cnf1 : Set[Set[(String, Boolean)]], cnf2 : Set[Set[(String, Boolean)]]) : Set[Set[(String, Boolean)]] = {
-    var cnf : Set[Set[(String, Boolean)]] = Set()
-    for (x <- cnf1.toIterator) {
-      for (y <- cnf2.toIterator) {
-        val clause = Set(x, y)
-        cnf = cnf + clause
+  def mergeCNF(cnf1 : CNF, cnf2 : CNF) : CNF = {
+    var mergedClauses : Set[Clause] = Set()
+    for (x <- cnf1.clauses.toIterator) {
+      for (y <- cnf2.clauses.toIterator) {
+        val mergedClause = Clause(x.literals ++ y.literals)
+        mergedClauses = mergedClauses + mergedClause
+//        val clause : Set[(String, Boolean)] = Set(x, y)
+//        val clauseSet : Set[Set[(String, Boolean)]] = Set(clause)
+//        cnf = cnf ++ clauseSet
       }
     }
-
-    cnf
+    CNF(mergedClauses)
   }
 
   //  private def getCurrentConditions(factor : Factor) : Set[Set[(String, Boolean)]] = {
@@ -118,61 +120,83 @@ class STSolverHelper {
   //    }
   //  }
 
-  def getCurrentConditions(not_factor : NotFactor) : Set[Set[(String, Boolean)]] = {
-    var cnf : Set[Set[(String, Boolean)]] = Set()
+  def getCurrentConditions(not_factor : NotFactor) : CNF = {
+    println(" - current conditions - not factor")
+    var clauses : Set[Clause] = Set()
     if (not_factor.t) { // 'not' present
       not_factor.factor match {
         case Expression(terms) =>
           if (terms.length > 1) {
             for (term <- terms) {
-              cnf = cnf ++ getCurrentConditions(negate(term))
+              clauses = clauses ++ getCurrentConditions(negate(term)).clauses
             }
           }
           else { // cannot be empty
             val term = terms.head
             if(term.not_factors.length > 1) {
               for (not_factor <- term.not_factors) {
-                cnf = mergeCNF(cnf, getCurrentConditions(negate(not_factor)))
+                clauses = mergeCNF(CNF(clauses), getCurrentConditions(negate(not_factor))).clauses
               }
             }
             else { // cannot be empty
-              cnf = cnf ++ getCurrentConditions(negate(term.not_factors.head))
+              clauses = clauses ++ getCurrentConditions(negate(term.not_factors.head)).clauses
             }
           }
         case Variable(name) =>
-          val literal = (name, true)
-          cnf = cnf ++ Set(Set(literal))
+          val literal = Literal(name, negation = true)
+          val clause = Clause(Set(literal))
+          clauses = clauses ++ Set(clause)
       }
-      cnf
+      CNF(clauses)
     }
     else { // 'not' not present
       not_factor.factor match {
         case Expression(terms) =>
           getCurrentConditions(Expression(terms))
         case Variable(name) =>
-          val literal = (name, false)
-          Set(Set(literal)) // base case
+          val literal = Literal(name, negation = false)
+          val clause = Clause(Set(literal))
+          CNF(Set(clause)) // base case
         //Set[Set[(String, Boolean)]]() + ((name, true)) // base case, change to if negation or not
       }
     }
   }
 
-  def getCurrentConditions(term : Term) : Set[Set[(String, Boolean)]] = {
+  def getCurrentConditions(term : Term) : CNF = {
+    println(" - current conditions - term")
     val not_factors = term.not_factors
-    var cnf : Set[Set[(String, Boolean)]] = Set()
+    var clauses : Set[Clause] = Set()
     for (not_factor <- not_factors) {
-      cnf = cnf ++ getCurrentConditions(not_factor)
+      clauses = clauses ++ getCurrentConditions(not_factor).clauses
     }
-    cnf
+    CNF(clauses)
   }
 
-  def getCurrentConditions(expression : Expression) : Set[Set[(String, Boolean)]] = {
+  def getCurrentConditions(expression : Expression) : CNF = {
+    println(" - current conditions - expression")
     val terms = expression.terms
-    var cnf : Set[Set[(String, Boolean)]] = Set()
+    var clauses : Set[Clause] = Set()
     for (term <- terms) {
-      cnf = mergeCNF(cnf, getCurrentConditions(term))
+      clauses = mergeCNF(CNF(clauses), getCurrentConditions(term)).clauses
     }
-    cnf
+    CNF(clauses)
+  }
+
+  def cnfToString(cnf : CNF): Unit = {
+    println("~~~ CNF ~~~")
+    for (clause <- cnf.clauses) {
+      print("(")
+      for (literal <- clause.literals) {
+        print("(")
+        if (literal.negation) {
+          print(" NOT")
+        }
+        print(" " ++ literal.variable ++ ") OR")
+      }
+      println(") AND")
+    }
+    println("~~~ ~~~ ~~~")
+
   }
 
 }
