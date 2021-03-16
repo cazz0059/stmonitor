@@ -1,1 +1,1 @@
-S_simple = !Send(x : Bool)[x].&{?ReceiveYes()[x],?ReceiveNo()[!x]}
+S_simple = rec X.( ?Get(ans: Bool)[ans].+{!Confirm(msg: String)[ans], !Deny()[not ans].X} )

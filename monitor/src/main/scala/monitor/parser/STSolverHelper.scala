@@ -143,19 +143,26 @@ class STSolverHelper {
             }
           }
         case Variable(name) =>
+          println(" - variable - " ++ name)
           val literal = Literal(name, negation = true)
           val clause = Clause(Set(literal))
           clauses = clauses ++ Set(clause)
       }
+      println("1")
+      println(clauses)
       CNF(clauses)
     }
     else { // 'not' not present
       not_factor.factor match {
         case Expression(terms) =>
+          println("1.5")
           getCurrentConditions(Expression(terms))
         case Variable(name) =>
+          println(" - variable - " ++ name)
           val literal = Literal(name, negation = false)
           val clause = Clause(Set(literal))
+          println("2")
+          println(clause)
           CNF(Set(clause)) // base case
         //Set[Set[(String, Boolean)]]() + ((name, true)) // base case, change to if negation or not
       }
@@ -169,6 +176,8 @@ class STSolverHelper {
     for (not_factor <- not_factors) {
       clauses = clauses ++ getCurrentConditions(not_factor).clauses
     }
+    println("3")
+    println(clauses)
     CNF(clauses)
   }
 
@@ -179,6 +188,8 @@ class STSolverHelper {
     for (term <- terms) {
       clauses = mergeCNF(CNF(clauses), getCurrentConditions(term)).clauses
     }
+    println("4")
+    println(clauses)
     CNF(clauses)
   }
 

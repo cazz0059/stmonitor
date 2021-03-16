@@ -11,6 +11,7 @@ import scala.xml.{PrettyPrinter, XML}
 class STParseTree(sessionType: SessionType, name: String) {
 
   val logger = Logger("STParseTree")
+  val helper = new STSolverHelper()
 
   def construct() : Unit = {
     var textXML = ""
@@ -203,6 +204,7 @@ class STParseTree(sessionType: SessionType, name: String) {
   }
 
   def not_factorsPT(not_factor: NotFactor) : String = {
+    logger.info("Current Not Factor" ++ helper.conditionToString(not_factor))
     not_factor match {
       case NotFactor(t, factor) =>
         var textXML = ""

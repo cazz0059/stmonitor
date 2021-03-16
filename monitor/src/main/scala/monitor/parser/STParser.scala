@@ -6,9 +6,9 @@ import scala.language.postfixOps
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 
 class STParser extends StandardTokenParsers {
-  lexical.reserved += ("rec", "end", "String", "Int", "Boolean", "and", "or", "not")
+  lexical.reserved += ("rec", "end", "String", "Int", "Bool", "and", "or", "not")
 
-  lexical.delimiters += ("?", "!", "&", "+", "(", ")", "{", "}", ",", ":", "=", ".", "[", "]") // , "|"
+  lexical.delimiters += ("?", "!", "&", "+", "(", ")", "{", "}", ",", ":", "=", ".", "[", "]", "and", "or", "not") // , "|"
 
   private var sendChoiceCounter: Int = 0
   private var receiveChoiceCounter: Int = 0
@@ -82,31 +82,39 @@ class STParser extends StandardTokenParsers {
 
   // https://gist.github.com/sofoklis/3343973 used for parsing conditions
 
-  def conditions: Parser[Expression] = rep1sep(term, "or") ^^ {
-    terms =>
-      for (t <- terms) {
-        t match {
-          case _: Term =>
-          case _ =>
-            throw new Exception("Not a term!")
-        }
-      }
-      Expression(terms)
+  def conditions: Parser[Expression] = (term ~ rep("or" ~> term)) ^^ { // rep1sep(term, "or")
+    case t ~ Nil =>
+      Expression(List(t))
+    case t ~ terms => // Some("or" ~ c) =>
+      Expression(List(t) ++ terms)
+//    terms =>
+//      for (t <- terms) {
+//        t match {
+//          case _: Term =>
+//          case _ =>
+//            throw new Exception("Not a term!")
+//        }
+//      }
+//      Expression(terms)
   }
 
-  def term: Parser[Term] = rep1sep(not_factor, "and") ^^ {
-    not_factors =>
-      for (f <- not_factors) {
-        f match {
-          case _: NotFactor =>
-          case _ =>
-            throw new Exception("Not a factor!")
-        }
-      }
-      Term(not_factors)
+  def term: Parser[Term] = (not_factor ~ rep("and" ~> not_factor)) ^^ { // rep1sep(not_factor, "and")
+    case nf ~ Nil =>
+      Term(List(nf))
+    case nf ~ nfs => // Some("and" ~ t) =>
+      Term(List(nf) ++ nfs)
+//    not_factors =>
+//      for (f <- not_factors) {
+//        f match {
+//          case _: NotFactor =>
+//          case _ =>
+//            throw new Exception("Not a factor!")
+//        }
+//      }
+//      Term(not_factors)
   }
 
-  def not_factor: Parser[NotFactor] = opt("not") ~ factor ^^ {
+  def not_factor: Parser[NotFactor] = (opt("not") ~ factor) ^^ {
     case Some("not") ~ f =>
       NotFactor(t = true, f);
     case None ~ f =>
@@ -118,7 +126,9 @@ class STParser extends StandardTokenParsers {
       Variable(v)
   }
 
-  def factor: Parser[Factor] = positioned(variable | "(" ~> conditions <~ ")") ^^ {exp=>exp}
+  def factor: Parser[Factor] = "(" ~> conditions <~ ")" | variable^^ { // positioned(variable | "(" ~> conditions <~ ")") ^^ {exp=>exp}
+    exp => exp
+  }
 
   def types: Parser[Map[String, String]] = repsep(typDef, ",") ^^ {
     _ toMap
