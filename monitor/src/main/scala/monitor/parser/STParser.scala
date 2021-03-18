@@ -6,9 +6,9 @@ import scala.language.postfixOps
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 
 class STParser extends StandardTokenParsers {
-  lexical.reserved += ("rec", "end", "String", "Int", "Bool", "and", "or", "not")
+  lexical.reserved += ("rec", "end", "String", "Int", "Boolean") //, "and", "or", "not"
 
-  lexical.delimiters += ("?", "!", "&", "+", "(", ")", "{", "}", ",", ":", "=", ".", "[", "]", "and", "or", "not") // , "|"
+  lexical.delimiters += ("?", "!", "&", "+", "(", ")", "{", "}", ",", ":", "=", ".", "[", "]") // , "|"
 
   private var sendChoiceCounter: Int = 0
   private var receiveChoiceCounter: Int = 0
@@ -22,11 +22,11 @@ class STParser extends StandardTokenParsers {
 
   def choice: Parser[Statement] = positioned( receiveChoice | sendChoice ) ^^ {a=>a}
 
-  def receive: Parser[ReceiveStatement] = ("?" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> conditions <~ "]") ~ opt("." ~> sessionType) ^^ {
+  def receive: Parser[ReceiveStatement] = ("?" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> stringLit <~ "]") ~ opt("." ~> sessionType) ^^ {
     case l ~ t ~ None ~ None =>
-      ReceiveStatement(l, t, Expression(Nil), End())
+      ReceiveStatement(l, t, null, End()) // Expression(Nil)
     case l ~ t ~ None ~ cT =>
-      ReceiveStatement(l, t, Expression(Nil), cT.get)
+      ReceiveStatement(l, t, null, cT.get)
     case l ~ t ~ c ~ None =>
       ReceiveStatement(l, t, c.get, End())
     case l ~ t ~ c ~ cT =>
@@ -45,11 +45,11 @@ class STParser extends StandardTokenParsers {
       ReceiveChoiceStatement(f"ExternalChoice${receiveChoiceCounter+=1;receiveChoiceCounter.toString}", cN)
   }
 
-  def send: Parser[SendStatement] = ("!" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> conditions <~ "]") ~ opt("." ~> sessionType) ^^ {
+  def send: Parser[SendStatement] = ("!" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> stringLit <~ "]") ~ opt("." ~> sessionType) ^^ {
     case l ~ t ~ None ~ None =>
-      SendStatement(l, t, Expression(Nil), End())
+      SendStatement(l, t, null, End()) // Expression(Nil)
     case l ~ t ~ None ~ cT =>
-      SendStatement(l, t, Expression(Nil), cT.get)
+      SendStatement(l, t, null, cT.get)
     case l ~ t ~ c ~ None =>
       SendStatement(l, t, c.get, End())
     case l ~ t ~ c ~ cT =>
@@ -80,55 +80,55 @@ class STParser extends StandardTokenParsers {
       RecursiveVar(i, cT.get)
   }
 
-  // https://gist.github.com/sofoklis/3343973 used for parsing conditions
-
-  def conditions: Parser[Expression] = (term ~ rep("or" ~> term)) ^^ { // rep1sep(term, "or")
-    case t ~ Nil =>
-      Expression(List(t))
-    case t ~ terms => // Some("or" ~ c) =>
-      Expression(List(t) ++ terms)
-//    terms =>
-//      for (t <- terms) {
-//        t match {
-//          case _: Term =>
-//          case _ =>
-//            throw new Exception("Not a term!")
-//        }
-//      }
-//      Expression(terms)
-  }
-
-  def term: Parser[Term] = (not_factor ~ rep("and" ~> not_factor)) ^^ { // rep1sep(not_factor, "and")
-    case nf ~ Nil =>
-      Term(List(nf))
-    case nf ~ nfs => // Some("and" ~ t) =>
-      Term(List(nf) ++ nfs)
-//    not_factors =>
-//      for (f <- not_factors) {
-//        f match {
-//          case _: NotFactor =>
-//          case _ =>
-//            throw new Exception("Not a factor!")
-//        }
-//      }
-//      Term(not_factors)
-  }
-
-  def not_factor: Parser[NotFactor] = (opt("not") ~ factor) ^^ {
-    case Some("not") ~ f =>
-      NotFactor(t = true, f);
-    case None ~ f =>
-      NotFactor(t = false, f)
-  }
-
-  def variable: Parser[Variable] = stringLit ^^ {
-    v =>
-      Variable(v)
-  }
-
-  def factor: Parser[Factor] = "(" ~> conditions <~ ")" | variable^^ { // positioned(variable | "(" ~> conditions <~ ")") ^^ {exp=>exp}
-    exp => exp
-  }
+//  // https://gist.github.com/sofoklis/3343973 used for parsing conditions
+//
+//  def conditions: Parser[Expression] = (term ~ rep("or" ~> term)) ^^ { // rep1sep(term, "or")
+//    case t ~ Nil =>
+//      Expression(List(t))
+//    case t ~ terms => // Some("or" ~ c) =>
+//      Expression(List(t) ++ terms)
+////    terms =>
+////      for (t <- terms) {
+////        t match {
+////          case _: Term =>
+////          case _ =>
+////            throw new Exception("Not a term!")
+////        }
+////      }
+////      Expression(terms)
+//  }
+//
+//  def term: Parser[Term] = (not_factor ~ rep("and" ~> not_factor)) ^^ { // rep1sep(not_factor, "and")
+//    case nf ~ Nil =>
+//      Term(List(nf))
+//    case nf ~ nfs => // Some("and" ~ t) =>
+//      Term(List(nf) ++ nfs)
+////    not_factors =>
+////      for (f <- not_factors) {
+////        f match {
+////          case _: NotFactor =>
+////          case _ =>
+////            throw new Exception("Not a factor!")
+////        }
+////      }
+////      Term(not_factors)
+//  }
+//
+//  def not_factor: Parser[NotFactor] = (opt("not") ~ factor) ^^ {
+//    case Some("not") ~ f =>
+//      NotFactor(t = true, f);
+//    case None ~ f =>
+//      NotFactor(t = false, f)
+//  }
+//
+//  def variable: Parser[Variable] = stringLit ^^ {
+//    v =>
+//      Variable(v)
+//  }
+//
+//  def factor: Parser[Factor] = "(" ~> conditions <~ ")" | variable^^ { // positioned(variable | "(" ~> conditions <~ ")") ^^ {exp=>exp}
+//    exp => exp
+//  }
 
   def types: Parser[Map[String, String]] = repsep(typDef, ",") ^^ {
     _ toMap
@@ -141,7 +141,7 @@ class STParser extends StandardTokenParsers {
 
   def end: Parser[End] = ("" | "end") ^^ (_ => End())
 
-  def typ: Parser[String] = "String" | "Int" | "Bool" ^^ (t => t)
+  def typ: Parser[String] = "String" | "Int" | "Boolean" ^^ (t => t)
 
   def parseAll[T](p: Parser[T], in: String): ParseResult[T] = {
     val assertionPattern = """\[(.*?)\]""".r

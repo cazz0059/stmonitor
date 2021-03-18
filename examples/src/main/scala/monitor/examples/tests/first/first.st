@@ -1,1 +1,1 @@
-S_first= ?First(x: Int)[x > 10].+{!Second(y: Int)[(x < 9) and (y > 0)], !Third(z : Int)}
+S_first= ?First(x: Int)[x > 10].+{!Second(y: Int)[(x < 9) && (y > 0)], !Third(z : Int)}

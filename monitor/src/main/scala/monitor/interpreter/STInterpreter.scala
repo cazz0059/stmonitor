@@ -236,12 +236,12 @@ class STInterpreter(sessionType: SessionType, path: String) {
    *              the current statement).
    * @param condition The condition of the current statement.
    */
-  private def checkAndInitVariables(label: String, types: Map[String, String], condition: Expression): Unit ={
+  private def checkAndInitVariables(label: String, types: Map[String, String], condition: String): Unit ={
     for(typ <- types) {
       scopes(curScope).variables(typ._1) = (false, typ._2)
     }
-    if (condition.terms.nonEmpty){
-      val identifiersInCondition = getIds(condition)
+    if (condition != null){ // .terms.nonEmpty
+      val identifiersInCondition = getIdentifiers(condition)
       for(ident <- identifiersInCondition){
         val identScope = searchIdent(curScope, ident)
         if(identScope != curScope) {
@@ -292,29 +292,29 @@ class STInterpreter(sessionType: SessionType, path: String) {
 
   //////////////////////////////////
 
-  def getIds(condition : Expression) : List[String] = {
-    val vars = getVars(condition)
-    var identifiers = List[String]()
-    for (v <- vars) {
-      identifiers = List.concat(identifiers, getIdentifiers(v))
-    }
-    identifiers
-  }
-
-  def getVars(expression : Expression) : List[String] = {
-    var vars = List[String]()
-    for (term <- expression.terms) {
-      for (not_factor <- term.not_factors) {
-        not_factor.factor match {
-          case Expression(terms) =>
-            vars = List.concat(vars, getVars(Expression(terms)))
-          case Variable(name) =>
-            vars ::= name
-        }
-      }
-    }
-    vars
-  }
+//  def getIds(condition : Expression) : List[String] = {
+//    val vars = getVars(condition)
+//    var identifiers = List[String]()
+//    for (v <- vars) {
+//      identifiers = List.concat(identifiers, getIdentifiers(v))
+//    }
+//    identifiers
+//  }
+//
+//  def getVars(expression : Expression) : List[String] = {
+//    var vars = List[String]()
+//    for (term <- expression.terms) {
+//      for (not_factor <- term.not_factors) {
+//        not_factor.factor match {
+//          case Expression(terms) =>
+//            vars = List.concat(vars, getVars(Expression(terms)))
+//          case Variable(name) =>
+//            vars ::= name
+//        }
+//      }
+//    }
+//    vars
+//  }
 
   //////////////////////////////////
 
@@ -335,61 +335,61 @@ class STInterpreter(sessionType: SessionType, path: String) {
 
   ////////////////////////////////////////////
 
-  private def notFactorToString(not_factor : NotFactor): String = {
-    //println(" - notFactorToString")
-    var stringCondition = ""
-
-    if (not_factor.t) {
-      stringCondition = stringCondition ++ " not"
-    }
-    stringCondition = stringCondition ++ " "
-    not_factor.factor match {
-      case Expression(terms) =>
-        stringCondition = stringCondition ++ conditionToString(Expression(terms))
-      case Variable(name) =>
-        stringCondition = stringCondition ++ name
-    }
-
-    stringCondition
-  }
-
-  private def termToString(term : Term): String = {
-    //println(" - termToString")
-    var stringCondition = ""
-
-    val not_factors = term.not_factors
-    if (not_factors.length > 1) {
-      for (not_factor <- not_factors) {
-        stringCondition = stringCondition ++ "("
-        stringCondition = stringCondition ++ notFactorToString(not_factor)
-        stringCondition = stringCondition ++ ") && "
-      }
-      stringCondition.dropRight(3) // removing last and
-    }
-    else if (not_factors.length == 1){
-      stringCondition = stringCondition ++ notFactorToString(not_factors.head)
-    }
-    stringCondition
-  }
-
-  private def conditionToString(expression : Expression) : String ={
-    //println(" - conditionToString")
-    var stringCondition = ""
-    val terms = expression.terms
-    if (terms.length > 1) {
-      for (term <- terms) {
-        stringCondition = stringCondition ++ "("
-        stringCondition = stringCondition ++ termToString(term)
-        stringCondition = stringCondition ++ ") || "
-      }
-      stringCondition.dropRight(3) // removing last or
-    }
-    else  if (terms.length == 1) {
-      stringCondition = stringCondition ++ termToString(terms.head)
-    }
-
-    stringCondition
-  }
+//  private def notFactorToString(not_factor : NotFactor): String = {
+//    //println(" - notFactorToString")
+//    var stringCondition = ""
+//
+//    if (not_factor.t) {
+//      stringCondition = stringCondition ++ " not"
+//    }
+//    stringCondition = stringCondition ++ " "
+//    not_factor.factor match {
+//      case Expression(terms) =>
+//        stringCondition = stringCondition ++ conditionToString(Expression(terms))
+//      case Variable(name) =>
+//        stringCondition = stringCondition ++ name
+//    }
+//
+//    stringCondition
+//  }
+//
+//  private def termToString(term : Term): String = {
+//    //println(" - termToString")
+//    var stringCondition = ""
+//
+//    val not_factors = term.not_factors
+//    if (not_factors.length > 1) {
+//      for (not_factor <- not_factors) {
+//        stringCondition = stringCondition ++ "("
+//        stringCondition = stringCondition ++ notFactorToString(not_factor)
+//        stringCondition = stringCondition ++ ") && "
+//      }
+//      stringCondition.dropRight(3) // removing last and
+//    }
+//    else if (not_factors.length == 1){
+//      stringCondition = stringCondition ++ notFactorToString(not_factors.head)
+//    }
+//    stringCondition
+//  }
+//
+//  private def conditionToString(expression : Expression) : String ={
+//    //println(" - conditionToString")
+//    var stringCondition = ""
+//    val terms = expression.terms
+//    if (terms.length > 1) {
+//      for (term <- terms) {
+//        stringCondition = stringCondition ++ "("
+//        stringCondition = stringCondition ++ termToString(term)
+//        stringCondition = stringCondition ++ ") || "
+//      }
+//      stringCondition.dropRight(3) // removing last or
+//    }
+//    else  if (terms.length == 1) {
+//      stringCondition = stringCondition ++ termToString(terms.head)
+//    }
+//
+//    stringCondition
+//  }
 
   ////////////////////////////////////////////
 
@@ -406,18 +406,18 @@ class STInterpreter(sessionType: SessionType, path: String) {
    * @param condition The condition to type-check.
    * @return The whether the condition is of type boolean or not.
    */
-  private def checkCondition(label: String, types: Map[String, String], condition: Expression): Boolean ={
-    if(condition.terms.nonEmpty) {
+  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={
+    if(condition != null) {
       println(" - checking condition")
       var stringVariables = ""
-      val identifiersInCondition = getIds(condition)
+      val identifiersInCondition = getIdentifiers(condition)
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
       val util = try source.mkString finally source.close()
       for(identName <- identifiersInCondition){
         val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
         stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
       }
-      val stringCondition = conditionToString(condition)
+      val stringCondition = condition // conditionToString(condition)
 
       val eval = s"""
            |$util

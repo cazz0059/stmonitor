@@ -5,5 +5,5 @@ S_listRes = ?Request(resource_kind : String, subject:String, resource:String, op
             !Completed()
         }
     ),
-    !Error(reason:String)[(operation == null) or (certificate == null)]
+    !Error(reason:String)[(operation == null) || (certificate == null)]
 }

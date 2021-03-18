@@ -1,1 +1,1 @@
-S_simple = rec X.( ?Get(ans: Bool)[ans].+{!Confirm(msg: String)[ans], !Deny()[not ans].X} )
+S_simple = rec X.( ?Get(ans: Boolean)[ans].+{!Confirm(msg: String)[ans], !Deny()[!ans].X} )

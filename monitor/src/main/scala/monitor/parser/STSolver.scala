@@ -204,13 +204,13 @@ class STSolver(sessionType : SessionType, path: String){
     curScope = label
   }
 
-  private def checkAndInitVariables(label: String, types: Map[String, String], condition: Expression): Unit = {
+  private def checkAndInitVariables(label: String, types: Map[String, String], condition: String): Unit = { // Expression
     for(typ <- types) {
       scopes(curScope).variables(typ._1) = (false, typ._2)
     }
-    if (condition.terms.nonEmpty){ // replace assertion function with actual assertion, basically build clauses not just identifiers
+    if (condition != null){ // .terms.nonEmpty // replace assertion function with actual assertion, basically build clauses not just identifiers
       // change scope class to hold clauses as well
-      val identifiersInCondition = getIds(condition)
+      val identifiersInCondition = getIdentifiers(condition)
       for(ident <- identifiersInCondition){
         val identScope = searchIdent(curScope, ident)
         if(identScope != curScope) {
@@ -233,29 +233,29 @@ class STSolver(sessionType : SessionType, path: String){
     }
   }
 
-  def getIds(condition : Expression) : List[String] = {
-    var vars = getVars(condition)
-    var identifiers = List[String]()
-    for (v <- vars) {
-      identifiers = List.concat(identifiers, getIdentifiers(v))
-    }
-    identifiers
-  }
-
-  def getVars(expression : Expression) : List[String] = {
-    var vars = List[String]()
-    for (term <- expression.terms) {
-      for (not_factor <- term.not_factors) {
-        not_factor.factor match {
-          case Expression(terms) =>
-            vars = List.concat(vars, getVars(Expression(terms)))
-          case Variable(name) =>
-            vars ::= name
-        }
-      }
-    }
-    vars
-  }
+//  def getIds(condition : Expression) : List[String] = {
+//    var vars = getVars(condition)
+//    var identifiers = List[String]()
+//    for (v <- vars) {
+//      identifiers = List.concat(identifiers, getIdentifiers(v))
+//    }
+//    identifiers
+//  }
+//
+//  def getVars(expression : Expression) : List[String] = {
+//    var vars = List[String]()
+//    for (term <- expression.terms) {
+//      for (not_factor <- term.not_factors) {
+//        not_factor.factor match {
+//          case Expression(terms) =>
+//            vars = List.concat(vars, getVars(Expression(terms)))
+//          case Variable(name) =>
+//            vars ::= name
+//        }
+//      }
+//    }
+//    vars
+//  }
 
   def getIdentifiers(condition: String): List[String] = {
     val conditionTree = toolbox.parse(condition)
@@ -326,11 +326,11 @@ class STSolver(sessionType : SessionType, path: String){
   // since this class will happen before(or during) interpreter, the conditions must be typechecked first before solving
   // debug this function to see what each step really does
   // was returning boolean, returning unit for now
-  private def checkCondition(label: String, types: Map[String, String], condition: Expression): Unit ={ // this shouldnt return bool, it should return the clauses
-    if(condition.terms.nonEmpty) {
+  private def checkCondition(label: String, types: Map[String, String], condition: String): Unit ={ // this shouldnt return bool, it should return the clauses
+    if(condition != null) { // .terms.nonEmpty
       var stringVariables = ""
 
-      val identifiersInCondition = getIds(condition) // will become getClauses
+      val identifiersInCondition = getIdentifiers(condition) // will become getClauses
 
       // getting util file contents
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
@@ -341,7 +341,7 @@ class STSolver(sessionType : SessionType, path: String){
         stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;\n"
       }
 
-      val stringCondition = helper.conditionToString(condition)
+      val stringCondition = condition //helper.conditionToString(condition)
 
       println("\n ~ Util >>>\n " ++ util ++ "\n<<<")
       println("\n ~ String Variables >>>\n " ++ stringVariables ++ "\n<<<")
@@ -359,8 +359,9 @@ class STSolver(sessionType : SessionType, path: String){
       //checked.tpe == Boolean
 
       println()
-      val cnf = helper.getCurrentConditions(condition)
-      helper.cnfToString(cnf)
+
+      //val cnf = helper.getCurrentConditions(condition)
+      //helper.cnfToString(cnf)
 
       // after checking type do the things to do for condition calculating and saving
       // no what, there s nothing to calculate

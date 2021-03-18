@@ -22,7 +22,7 @@ class STParseTree(sessionType: SessionType, name: String) {
     textXML = textXML ++ statementPT(sessionType.statement)
     textXML = textXML ++ "</" ++ STname ++ ">"
 
-    //print("\n" ++ textXML ++ "\n\n")//
+    print("\n" ++ textXML ++ "\n\n")//
 
     val xmlText = XML.loadString(textXML)
     val parseTree = new PrettyPrinter(150, 4).format(xmlText)
@@ -45,9 +45,9 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML = textXML ++ typesPT(types)
         textXML = textXML ++ "</types>"
 
-        if (condition.terms.nonEmpty) {
+        if (condition != null) { // condition.terms.nonEmpty
           textXML = textXML ++ "<conditions>"
-          textXML = textXML ++ expressionPT(condition)
+          textXML = textXML ++ conditionPT(condition) // expressionPT(condition)
           textXML = textXML ++ "</conditions>"
         }
 
@@ -65,9 +65,9 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML = textXML ++ typesPT(types)
         textXML = textXML ++ "</types>"
 
-        if(condition.terms.nonEmpty) {
+        if(condition != null) {
           textXML = textXML ++ "<conditions>"
-          textXML = textXML ++ expressionPT(condition)
+          textXML = textXML ++ conditionPT(condition) // expressionPT(condition)
           textXML = textXML ++ "</conditions>"
         }
 
@@ -131,106 +131,115 @@ class STParseTree(sessionType: SessionType, name: String) {
     textXML
   }
 
-  def expressionPT(expression: Expression) : String = {
-    expression match {
-      case Expression(terms) =>
-        logger.info("Conditions")
-        var textXML = ""
-        if (terms.length > 1) {
-          for (term <- terms) {
-            textXML = textXML ++ "<or>"
-            textXML = textXML ++ termPT(term)
-            textXML = textXML ++ "</or>"
-          }
-          textXML
-        }
-        else {
-          textXML ++ termPT(terms.head)
-        }
-    }
-//    var textXML = ""
-//    var condition_temp = condition
-//    condition_temp = condition_temp.replace("<", "&lt;")
-//    condition_temp = condition_temp.replace(">", "&gt;")
-//    // add () && () //
-//    // add or //
-//    // add !something //
-//    // add !(something) //
-//    // add !=
-//    // add parse for <, >, <= and >= - these first to check game.st //
-//    // recursion on condition
-//
-//    // this is wrong because of nested logical operations, cannot tell the parsing order
-//    // parsing the conditions should be part of the parser
-//    if (condition_temp.take(1) == "!"){
-//      textXML = textXML ++ "<not>"
-//      var con_temp = condition_temp
-//      con_temp = con_temp.trim
-//      if (con_temp.take(1) == "(" && con_temp.takeRight(1) == ")"){
-//        con_temp = con_temp.drop(1).dropRight(1)
-//      }
-//      textXML = textXML ++ "<condition>"
-//      textXML = textXML ++ con_temp
-//      textXML = textXML ++ "</condition>"
-//
-//      textXML = textXML ++ "</not>"
+  def conditionPT(conditions : String) = {
+    var condition_temp = conditions
+    condition_temp = condition_temp.replace("&", "&amp;")
+    condition_temp = condition_temp.replace("<", "&lt;")
+    condition_temp = condition_temp.replace(">", "&gt;")
+    condition_temp
+    //conditions
+  }
+
+//  def expressionPT(expression: Expression) : String = {
+//    expression match {
+//      case Expression(terms) =>
+//        logger.info("Conditions")
+//        var textXML = ""
+//        if (terms.length > 1) {
+//          for (term <- terms) {
+//            textXML = textXML ++ "<or>"
+//            textXML = textXML ++ termPT(term)
+//            textXML = textXML ++ "</or>"
+//          }
+//          textXML
+//        }
+//        else {
+//          textXML ++ termPT(terms.head)
+//        }
 //    }
+////    var textXML = ""
+////    var condition_temp = condition
+////    condition_temp = condition_temp.replace("<", "&lt;")
+////    condition_temp = condition_temp.replace(">", "&gt;")
+////    // add () && () //
+////    // add or //
+////    // add !something //
+////    // add !(something) //
+////    // add !=
+////    // add parse for <, >, <= and >= - these first to check game.st //
+////    // recursion on condition
+////
+////    // this is wrong because of nested logical operations, cannot tell the parsing order
+////    // parsing the conditions should be part of the parser
+////    if (condition_temp.take(1) == "!"){
+////      textXML = textXML ++ "<not>"
+////      var con_temp = condition_temp
+////      con_temp = con_temp.trim
+////      if (con_temp.take(1) == "(" && con_temp.takeRight(1) == ")"){
+////        con_temp = con_temp.drop(1).dropRight(1)
+////      }
+////      textXML = textXML ++ "<condition>"
+////      textXML = textXML ++ con_temp
+////      textXML = textXML ++ "</condition>"
+////
+////      textXML = textXML ++ "</not>"
+////    }
+////
+////    else {
+////      textXML = textXML ++ "<condition>"
+////      textXML = textXML ++ condition_temp
+////      textXML = textXML ++ "</condition>"
+////    }
+////    textXML
+//  }
 //
-//    else {
-//      textXML = textXML ++ "<condition>"
-//      textXML = textXML ++ condition_temp
-//      textXML = textXML ++ "</condition>"
+//  def termPT(term: Term) : String = {
+//    term match {
+//      case Term(not_factors) =>
+//        //logger.info("Terms")
+//        var textXML = ""
+//        if (not_factors.length > 1) {
+//          for (not_factor <- not_factors) {
+//            textXML = textXML ++ "<and>"
+//            textXML = textXML ++ not_factorsPT(not_factor)
+//            textXML = textXML ++ "</and>"
+//          }
+//          textXML
+//        }
+//        else {
+//          textXML ++ not_factorsPT(not_factors.head)
+//        }
 //    }
-//    textXML
-  }
-
-  def termPT(term: Term) : String = {
-    term match {
-      case Term(not_factors) =>
-        //logger.info("Terms")
-        var textXML = ""
-        if (not_factors.length > 1) {
-          for (not_factor <- not_factors) {
-            textXML = textXML ++ "<and>"
-            textXML = textXML ++ not_factorsPT(not_factor)
-            textXML = textXML ++ "</and>"
-          }
-          textXML
-        }
-        else {
-          textXML ++ not_factorsPT(not_factors.head)
-        }
-    }
-  }
-
-  def not_factorsPT(not_factor: NotFactor) : String = {
-    logger.info("Current Not Factor" ++ helper.conditionToString(not_factor))
-    not_factor match {
-      case NotFactor(t, factor) =>
-        var textXML = ""
-        if (t) {
-          textXML = textXML ++ "<not>"
-          textXML = textXML ++ factorPT(factor)
-          textXML ++ "</not>"
-        }
-        else {
-          textXML ++ factorPT(factor)
-        }
-    }
-  }
-
-  def factorPT(factor: Factor) : String = {
-    factor match {
-      case Expression(terms) =>
-        expressionPT(Expression(terms))
-      case Variable(name) =>
-        var name_temp = name
-        name_temp = name_temp.replace("<", "&lt;")
-        name_temp = name_temp.replace(">", "&gt;")
-        name_temp
-    }
-  } // see where arrange the < and > in string
-
+//  }
+//
+//  def not_factorsPT(not_factor: NotFactor) : String = {
+//    logger.info("Current Not Factor" ++ helper.conditionToString(not_factor))
+//    not_factor match {
+//      case NotFactor(t, factor) =>
+//        var textXML = ""
+//        if (t) {
+//          textXML = textXML ++ "<not>"
+//          textXML = textXML ++ factorPT(factor)
+//          textXML ++ "</not>"
+//        }
+//        else {
+//          textXML ++ factorPT(factor)
+//        }
+//    }
+//  }
+//
+//  def factorPT(factor: Factor) : String = {
+//    factor match {
+//      case Expression(terms) =>
+//        expressionPT(Expression(terms))
+//      case Variable(name) =>
+//        var name_temp = name
+//        name_temp = name_temp.replace("<", "&lt;")
+//        name_temp = name_temp.replace(">", "&gt;")
+//        name_temp
+//    }
+//  } // see where arrange the < and > in string
+//
 
 
 //  def ineq(condition : String) : String = {
