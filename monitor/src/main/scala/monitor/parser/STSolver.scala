@@ -4,9 +4,10 @@ import scala.collection.mutable
 import scala.reflect.runtime._
 import scala.reflect.runtime.universe._
 import scala.tools.reflect.ToolBox
-
 import monitor.model._
 import monitor.model.Scope
+
+import scala.collection.mutable.ListBuffer
 
 //import z3
 
@@ -25,6 +26,8 @@ class STSolver(sessionType : SessionType, path: String){
   private var scopes = new mutable.HashMap[String, Scope]()
   private var curScope = "global"
   scopes(curScope) = new Scope("global", null)
+
+  private var solvedST : SessionType = new SessionType(null, null)
 
   //private var branches = new mutable.HashMap[Statement, String]()
 
@@ -59,8 +62,9 @@ class STSolver(sessionType : SessionType, path: String){
     logger.info("Initial Walk Complete")
     println()
 
-    walk(sessionType.statement)
-    sessionType
+    solvedST.name = sessionType.name
+    solvedST.statement = walk(sessionType.statement)
+    solvedST//sessionType
   }
 
   def initialWalk(root: Statement): Unit = {
@@ -109,7 +113,7 @@ class STSolver(sessionType : SessionType, path: String){
   }
 
   // this one should do all the solving stuff while traversing
-  def walk(statement: Statement): Unit = {
+  def walk(statement: Statement): Statement = {
     statement match {
       case statement @ ReceiveStatement(label, types, condition, _) =>
         println()
@@ -123,8 +127,13 @@ class STSolver(sessionType : SessionType, path: String){
         checkCondition(label, types, condition)
 
         // "rebuild parse tree" functions here
-        handleReceive(statement, statement.continuation)
-        walk(statement.continuation)
+        //handleReceive(statement, statement.continuation)
+        if(solver(condition) || condition == null) {
+          ReceiveStatement(label, types, condition, walk(statement.continuation))
+        }
+        else {
+          null
+        }
 
       case statement @ SendStatement(label, types, condition, _) =>
         println()
@@ -132,24 +141,44 @@ class STSolver(sessionType : SessionType, path: String){
         println()
         curScope = label
         checkCondition(label, types, condition)
+        if(solver(condition) || condition == null) {
+          SendStatement(label, types, condition, walk(statement.continuation))
+        }
+        else {
+          null
+        }
 
-        handleSend(statement, statement.continuation)
-        walk(statement.continuation)
+        //handleSend(statement, statement.continuation)
+
 
       case statement @ ReceiveChoiceStatement(label, choices) =>
         println()
         logger.info("Receive Choice Statement "+label+"{"+choices+"}")
         println()
         curScope = label
-        handleReceiveChoice(statement)
+        var solvedChoices : ListBuffer[Statement] = ListBuffer()
+        //handleReceiveChoice(statement)
 
         for(choice <- choices) {
-          curScope = choice.asInstanceOf[ReceiveStatement].label
-          checkCondition(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types, choice.asInstanceOf[ReceiveStatement].condition)
+          val currChoice = choice.asInstanceOf[ReceiveStatement]
+          curScope = currChoice.label
+          checkCondition(currChoice.label, currChoice.types, currChoice.condition)
+          val sat = solver(currChoice.condition)
           //synthProtocol.handleReceive(choice.asInstanceOf[ReceiveStatement], choice.asInstanceOf[ReceiveStatement].continuation, statement.label)
 
-          walk(choice.asInstanceOf[ReceiveStatement].continuation)
-          curScope = scopes(choice.asInstanceOf[ReceiveStatement].label).parentScope.name
+          if (sat || currChoice.condition == null) {
+            //val solvedChoice : List[Statement] = List(walk(choice.asInstanceOf[ReceiveStatement].continuation))
+            solvedChoices += ReceiveStatement(currChoice.label, currChoice.types, currChoice.condition, walk(currChoice.continuation))
+            curScope = scopes(currChoice.label).parentScope.name
+          }
+
+        }
+
+        if (solvedChoices.nonEmpty) {
+          ReceiveChoiceStatement(label, solvedChoices.toList)
+        }
+        else {
+          null
         }
 
       case statement @ SendChoiceStatement(label, choices) =>
@@ -157,31 +186,44 @@ class STSolver(sessionType : SessionType, path: String){
         logger.info("Send Choice Statement "+label+"{"+choices+"}")
         println()
         curScope = label
-        handleSendChoice(statement)
+        var solvedChoices : ListBuffer[Statement] = ListBuffer()
+        //handleSendChoice(statement)
 
         for(choice <- choices) {
-          curScope = choice.asInstanceOf[SendStatement].label
-          checkCondition(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
+          val currChoice = choice.asInstanceOf[SendStatement]
+          curScope = currChoice.label
+          checkCondition(currChoice.label, currChoice.types, currChoice.condition)
+          val sat = solver(currChoice.condition)
 
           //synthProtocol.handleSend(choice.asInstanceOf[SendStatement], choice.asInstanceOf[SendStatement].continuation, statement.label)
-          walk(choice.asInstanceOf[SendStatement].continuation)
-          curScope = scopes(choice.asInstanceOf[SendStatement].label).parentScope.name
+          if (sat || currChoice.condition == null) {
+            solvedChoices += SendStatement(currChoice.label, currChoice.types, currChoice.condition, walk(currChoice.continuation))
+            curScope = scopes(currChoice.label).parentScope.name
+          }
+
+        }
+
+        if (solvedChoices.nonEmpty) {
+          SendChoiceStatement(label, solvedChoices.toList)
+        }
+        else {
+          null
         }
 
       case statement @ RecursiveStatement(label, body) =>
         println()
         logger.info("Recursive statement with variable "+label+" and body: " +body)
         println()
-        walk(statement.body)
+        RecursiveStatement(label, walk(statement.body))
 
       case statement @ RecursiveVar(name, continuation) =>
         println()
         logger.info("Recursive variable "+name)
         println()
         checkRecVariable(scopes(curScope), statement)
-        walk(statement.continuation)
+        RecursiveVar(name, walk(statement.continuation))
 
-      case End() =>
+      case End() => null
 
     }
   }
@@ -305,8 +347,6 @@ class STSolver(sessionType : SessionType, path: String){
     mon.append("\t\t}\n")
   }
 
-
-
   /**
    * Type checks a condition of type String using the scala compiler. First, the identifiers are extracted
    * from the condition. Their type is then retrieved and appended to a string as variable declarations. The contents
@@ -327,6 +367,7 @@ class STSolver(sessionType : SessionType, path: String){
   // debug this function to see what each step really does
   // was returning boolean, returning unit for now
   private def checkCondition(label: String, types: Map[String, String], condition: String): Unit ={ // this shouldnt return bool, it should return the clauses
+    // make this function just a type checker
     if(condition != null) { // .terms.nonEmpty
       var stringVariables = ""
 
@@ -343,9 +384,9 @@ class STSolver(sessionType : SessionType, path: String){
 
       val stringCondition = condition //helper.conditionToString(condition)
 
-      println("\n ~ Util >>>\n " ++ util ++ "\n<<<")
-      println("\n ~ String Variables >>>\n " ++ stringVariables ++ "\n<<<")
-      println("\n ~ String Condition >>>\n " ++ stringCondition ++ "\n<<<")
+      //println("\n ~ Util >>>\n " ++ util ++ "\n<<<")
+      //println("\n ~ String Variables >>>\n " ++ stringVariables ++ "\n<<<")
+      //println("\n ~ String Condition >>>\n " ++ stringCondition ++ "\n<<<")
 
       val eval = s"""
                     |$util
@@ -353,33 +394,72 @@ class STSolver(sessionType : SessionType, path: String){
                     |$stringCondition
                     |""".stripMargin
       val tree = toolbox.parse(eval) // research on what toolbox does and what these functions do
-      println("\n ~ Tree >>>\n " ++ tree.toString() ++ "\n<<<")
+      //println("\n ~ Tree >>>\n " ++ tree.toString() ++ "\n<<<")
       val checked = toolbox.typecheck(tree)
-      println("\n ~ Checked >>>\n " ++ checked.toString() ++ "\n<<<")
-      //checked.tpe == Boolean
-
-      println()
-
-      //val cnf = helper.getCurrentConditions(condition)
-      //helper.cnfToString(cnf)
-
-      // after checking type do the things to do for condition calculating and saving
-      // no what, there s nothing to calculate
-      // see steps in evernote
-      solver() // solver goes in here
-
+      //println("\n ~ Checked >>>\n " ++ checked.toString() ++ "\n<<<")
+      checked.tpe == Boolean
     }
-
   }
 
 //  def checkStatement(statement: Statement) : Unit = {
 //
 //  }
 
-  def solver(): Boolean ={
+  def solver(conditions : String): Boolean ={
+    println(" ::::::::::::::::: SOLVER ::::::::::::::::::::")
+
+    if(conditions != null) {
+      println("\n ~ Conditions >>>\n " ++ conditions ++ "\n<<<")
+      val parsedConditions = toolbox.parse(conditions)
+      println("\n ~ Parsed Conditions >>>\n " ++ parsedConditions.toString() ++ "\n<<<")
+
+      // getting util file contents
+      val source = scala.io.Source.fromFile(path + "/util.scala", "utf-8")
+      val util = try source.mkString finally source.close()
+
+      // need to parse conditions
+      val parsedUtil = toolbox.parse(util)
+      println("\n ~ Parsed Util >>>\n " ++ parsedUtil.toString() ++ "\n<<<")
+      //val cnf = helper.getCurrentConditions(condition)
+      //helper.cnfToString(cnf)
+
+      // after checking type do the things to do for condition calculating and saving
+      // no what, there s nothing to calculate
+      // see steps in evernote
+      //solver() // solver goes in here
+
+      // user input for now
+      println("Is this SAT?")
+      val ans = scala.io.StdIn.readLine()
+      if (ans == "no") {
+        println("Answer is no, so UNSAT")
+        false
+      }
+      else {
+        true
+      }
+    }
+    else {
+      true
+    }
+
     //val z3 = new Z3Context("MODEL" -> true)
-    true // this returns sat/unsat?
+    // this returns sat/unsat?
   }
+
+//  def rebuildSessionType(statement: Statement) : Statement = {
+//    statement match {
+//      case statement@ReceiveStatement(label, types, condition, _) =>
+//
+//      case statement@SendStatement(label, types, condition, _) =>
+//
+//      case statement@ReceiveChoiceStatement(label, choices) =>
+//
+//
+//      case statement@SendChoiceStatement(label, choices) =>
+//    }
+//  }
+
 
   // REBUILDING PARSE TREE
   // check out synthmon/synthprotocol setup for these functions

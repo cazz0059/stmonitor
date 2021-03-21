@@ -24,18 +24,24 @@ class STParser extends StandardTokenParsers {
 
   def receive: Parser[ReceiveStatement] = ("?" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> stringLit <~ "]") ~ opt("." ~> sessionType) ^^ {
     case l ~ t ~ None ~ None =>
+      println(l)
       ReceiveStatement(l, t, null, End()) // Expression(Nil)
     case l ~ t ~ None ~ cT =>
+      println(l)
       ReceiveStatement(l, t, null, cT.get)
     case l ~ t ~ c ~ None =>
+      println(l)
       ReceiveStatement(l, t, c.get, End())
     case l ~ t ~ c ~ cT =>
+      println(l)
+      println("Hello")
       ReceiveStatement(l, t, c.get, cT.get)
   }
 
   def receiveChoice: Parser[ReceiveChoiceStatement] = "&" ~ "{" ~> (repsep(sessionType, ",") <~ "}") ^^ {
     cN =>
       for (s <- cN) {
+        println("Receive Choice")
         s match {
           case _: ReceiveStatement =>
           case _ =>
@@ -47,18 +53,23 @@ class STParser extends StandardTokenParsers {
 
   def send: Parser[SendStatement] = ("!" ~> ident) ~ ("(" ~> types <~ ")") ~ opt("[" ~> stringLit <~ "]") ~ opt("." ~> sessionType) ^^ {
     case l ~ t ~ None ~ None =>
+      println(l)
       SendStatement(l, t, null, End()) // Expression(Nil)
     case l ~ t ~ None ~ cT =>
+      println(l)
       SendStatement(l, t, null, cT.get)
     case l ~ t ~ c ~ None =>
+      println(l)
       SendStatement(l, t, c.get, End())
     case l ~ t ~ c ~ cT =>
+      println(l)
       SendStatement(l, t, c.get, cT.get)
   }
 
   def sendChoice: Parser[SendChoiceStatement] = "+" ~ "{" ~> (repsep(sessionType, ",") <~ "}") ^^ {
     cN =>
       for (s <- cN) {
+        println("Send Choice")
         s match {
           case _: SendStatement =>
           case _ =>

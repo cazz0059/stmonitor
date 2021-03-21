@@ -1,3 +1,3 @@
 package monitor.model
 
-class SessionType(val name: String, val statement: Statement)
+class SessionType(var name: String, var statement: Statement)

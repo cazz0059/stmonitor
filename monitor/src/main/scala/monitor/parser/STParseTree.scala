@@ -117,6 +117,9 @@ class STParseTree(sessionType: SessionType, name: String) {
         //logger.info("End")//
         ""
 
+      case null =>
+        ""
+
       case _ =>
         throw new Exception("Error: Statement does not match")
     }
