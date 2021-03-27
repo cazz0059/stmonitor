@@ -47,6 +47,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
    *         the monitor and cpsp classes is found.
    */
   def run(): (StringBuilder, StringBuilder) = {
+    logger.info("Running Interpreter")
     sessionType.statement match {
       case recursiveStatement: RecursiveStatement =>
         var tmpStatement: Statement = null
@@ -59,6 +60,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
     }
     synthProtocol.init()
 
+    logger.info("Initial Walk starting")
     initialWalk(sessionType.statement)
     curScope = "global"
     synthMon.endInit()
@@ -79,18 +81,24 @@ class STInterpreter(sessionType: SessionType, path: String) {
   def initialWalk(root: Statement): Unit = {
     root match {
       case ReceiveStatement(label, types, condition, continuation) =>
+        logger.info("Creating and updating scope - RecSta")
         createAndUpdateScope(label)
+        logger.info("Checking and Init Vars")
         checkAndInitVariables(label, types, condition)
+        logger.info("Handling Payload")
         synthMon.handlePayloads(label, types)
+        logger.info("Moving on")
         initialWalk(continuation)
 
       case SendStatement(label, types, condition, continuation) =>
+        logger.info("Creating and updating scope - SendSta")
         createAndUpdateScope(label)
         checkAndInitVariables(label, types, condition)
         synthMon.handlePayloads(label, types)
         initialWalk(continuation)
 
       case ReceiveChoiceStatement(label, choices) =>
+        logger.info("Creating and updating scope - RecChoice")
         createAndUpdateScope(label)
         for(choice <- choices) {
           createAndUpdateScope(choice.asInstanceOf[ReceiveStatement].label)
@@ -101,14 +109,17 @@ class STInterpreter(sessionType: SessionType, path: String) {
         }
 
       case SendChoiceStatement(label, choices) =>
+        logger.info("Creating and updating scope - SendChoice")
         createAndUpdateScope(label)
         for(choice <- choices) {
+          logger.info("Choice : " + choice.asInstanceOf[SendStatement].label)
           createAndUpdateScope(choice.asInstanceOf[SendStatement].label)
           checkAndInitVariables(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
           synthMon.handlePayloads(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types)
           initialWalk(choice.asInstanceOf[SendStatement].continuation)
           curScope = scopes(choice.asInstanceOf[SendStatement].label).parentScope.name
         }
+        logger.info("End of choices - Send")
 
       case RecursiveStatement(label, body) =>
         scopes(curScope).recVariables(label) = body
@@ -118,6 +129,10 @@ class STInterpreter(sessionType: SessionType, path: String) {
         initialWalk(continuation)
 
       case End() =>
+
+
+      case null =>
+
     }
   }
 
@@ -189,6 +204,8 @@ class STInterpreter(sessionType: SessionType, path: String) {
         walk(statement.continuation)
 
       case End() =>
+
+      case null =>
 
       }
   }

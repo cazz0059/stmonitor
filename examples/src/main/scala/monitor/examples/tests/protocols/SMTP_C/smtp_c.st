@@ -1,14 +1,14 @@
-C_smtp = ?_220(option : String)[(option == 'dash') || (option == 'normal')].rec X1.(
+C_smtp = ?TwoTwoZero(option : Int)[(option == 1) || (option == 2)].rec X1.(
     &{
-        ?_250dash(string : String).X1,
-        ?_250(choice : String)[(choice == option) && (option == 'normal')].rec Z1.(
-            !Data(data : String)[(choice == 'subject') || (choice == 'dataline') || (choice == 'atad')].rec Z3.(
-                +{
-                    !Subject(subject : String)[choice == 'subject'].Z3,
-                    !Dataline(dataline : String)[choice == 'dataline'].Z3,
-                    !atad(dot : String)[(choice == 'atad') && (dot == '.')].?_250(String).Z1
-                }
-            )
+        ?TwoFiveZeroDash(string : String).X1,
+        ?TwoFiveZero(choice : Int)[(choice == option) && (option == 1)].rec Z1.(
+            !Data(data : String)[(choice == 3) || (choice == 4) || (choice == 5)].rec Z3.(
+                 +{
+                     !Subject(subject : String)[choice == 3].Z3,
+                     !Dataline(dataline : String)[choice == 4].Z3,
+                     !atad(dot : String)[(choice == 5) && (dot == 6)].Z1
+                 }
+             )
         )
     }
 )

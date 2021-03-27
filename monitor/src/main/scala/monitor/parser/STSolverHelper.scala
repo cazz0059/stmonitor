@@ -228,8 +228,11 @@ class STSolverHelper {
         }
 
         if (continuation != null) {
-          receiveStatement = receiveStatement ++ "."
-          receiveStatement = receiveStatement ++ rebuilding(continuation)
+          val continuationTemp = rebuilding(continuation)
+          if (continuationTemp != "") {
+            receiveStatement = receiveStatement ++ "."
+            receiveStatement = receiveStatement ++ continuationTemp
+          }
         }
 
         receiveStatement
@@ -264,8 +267,11 @@ class STSolverHelper {
         }
 
         if (continuation != null) {
-          sendStatement = sendStatement ++ "."
-          sendStatement = sendStatement ++ rebuilding(continuation)
+          val continuationTemp = rebuilding(continuation)
+          if (continuationTemp != "") {
+            sendStatement = sendStatement ++ "."
+            sendStatement = sendStatement ++ continuationTemp
+          }
         }
 
         sendStatement
@@ -287,7 +293,10 @@ class STSolverHelper {
         }
 
       case RecursiveStatement(label, body) =>
-        "rec " + label + ".(" + rebuilding(body) + ")"
+        if (body != null)
+          "rec " + label + ".(" + rebuilding(body) + ")"
+        else
+          ""
 
       case RecursiveVar(name, continuation) =>
         var recursiveVar = name

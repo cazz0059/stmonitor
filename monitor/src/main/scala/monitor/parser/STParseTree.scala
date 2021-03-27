@@ -107,9 +107,15 @@ class STParseTree(sessionType: SessionType, name: String) {
 
       case RecursiveStatement(label, body) =>
         //logger.info("Recursive Statement")//
-        var textXML = "<recursion_" ++ label ++ ">"
-        textXML = textXML ++ statementPT(body)
-        textXML ++ "</recursion_" ++ label ++ ">"
+        var textXML = ""
+        if (body != null) {
+          textXML = "<recursion_" ++ label ++ ">"
+          textXML = textXML ++ statementPT(body)
+          textXML ++ "</recursion_" ++ label ++ ">"
+        }
+        else {
+          textXML
+        }
 
       case RecursiveVar(name, continuation) =>
         //logger.info("RecursiveVarStatement")//

@@ -1,0 +1,1 @@
+C_smtp = ?TwoTwoZero(option : Int)[(option == 1) || (option == 2)].rec X1.(&{?TwoFiveZeroDash(string : String).X1, ?TwoFiveZero(choice : Int)[(choice == option) && (option == 1)]})

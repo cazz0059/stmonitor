@@ -394,6 +394,7 @@ class STSolver(sessionType : SessionType, path: String){
       breakable {
         while (scopes(tmpScope).parentScope.name != "global") {
           tmpScope = scopes(tmpScope).parentScope.name
+          println("TempScope: " + tmpScope)
           if (scopes(tmpScope).assertions != "") {
             scopes(curScope).assertions = "(" + scopes(tmpScope).assertions + ") && (" + condition + ")"
             break
@@ -439,7 +440,7 @@ class STSolver(sessionType : SessionType, path: String){
                     |$stringPayload
                     |""".stripMargin
       val tree = toolbox.parse(eval) // research on what toolbox does and what these functions do
-      println("\n ~ Tree >>>\n " ++ tree.toString() ++ "\n<<<")
+      //println("\n ~ Tree >>>\n " ++ tree.toString() ++ "\n<<<")
       val checked = toolbox.typecheck(tree)
       //println("\n ~ Checked >>>\n " ++ checked.toString() ++ "\n<<<")
       checked.tpe == Boolean

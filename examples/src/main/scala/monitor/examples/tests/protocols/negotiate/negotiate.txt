@@ -26,3 +26,17 @@ https://groups.inf.ed.ac.uk/abcd/meeting-january2014/raymond-hu.pdf
 this should end up as
 propose -> propose -> reject
 for all cases
+(what no, it can go to propose3)
+
+
+S_negotiate = !Propose(proposal : String, i : Int)[i == 0].rec START.(
+        &{
+            ?Accept()[i > 0].!Confirm(),
+            ?Reject()[i < 0],
+            ?Propose(proposal2 : String, i2 : Int)[i == 0].+{
+                !Accept(check :Boolean)[util.validate(i, check)].?Confirm(),
+                !Reject()[i2 < 0],
+                !Propose(proposal3 : String, i3 : Int)[i2 >= 0].START
+            }
+        }
+    )

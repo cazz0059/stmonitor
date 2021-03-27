@@ -1,4 +1,4 @@
-//package monitor.examples.tests.protocols.buyTicket
+package monitor.examples.tests.protocols.buyTicket
 
 object util {
   def approve(code : String): Boolean ={
