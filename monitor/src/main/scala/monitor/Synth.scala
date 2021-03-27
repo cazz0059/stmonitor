@@ -7,6 +7,7 @@ import monitor.interpreter.STInterpreter
 import monitor.parser.STParser
 import monitor.parser.STParseTree
 import monitor.parser.STSolver
+import monitor.parser.STSolverHelper
 
 import scala.io.Source
 
@@ -52,6 +53,15 @@ class Synth {
             return
         }
 
+        val helper = new STSolverHelper()
+        try {
+          helper.rebuildST(rSolved)
+        } catch {
+          case e: Exception =>
+            println()
+            logger.info("ST Builder Error: " + e.getMessage)
+            return
+        }
 
         val parseTreeSolved = new STParseTree(rSolved, "solved")
         try {
@@ -64,7 +74,7 @@ class Synth {
         }
 
 
-        val interpreter = new STInterpreter(r, path)
+        val interpreter = new STInterpreter(rSolved, path)
         try {
           val (mon, protocol) = interpreter.run()
           if(synthMonFile){

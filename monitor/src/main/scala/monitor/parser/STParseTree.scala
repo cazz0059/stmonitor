@@ -25,11 +25,11 @@ class STParseTree(sessionType: SessionType, name: String) {
     print("\n" ++ textXML ++ "\n\n")//
 
     val xmlText = XML.loadString(textXML)
-    val parseTree = new PrettyPrinter(150, 4).format(xmlText)
+//    val parseTree = new PrettyPrinter(150, 4).format(xmlText)
 //    print("\n")//
 //    print(parseTree)//
 //    print("\n\n")//
-    XML.save("examples/src/main/scala/monitor/examples/parseTrees/" ++ name ++ "_" ++ STname ++ "_parseTree.xml", xmlText)
+    XML.save("examples/src/main/scala/monitor/examples/parseTrees/" ++ STname ++ "_" ++ name ++ "_parseTree.xml", xmlText)
     logger.info("XML file created")
     println()
     //logger.info("XML text created")//
@@ -51,9 +51,11 @@ class STParseTree(sessionType: SessionType, name: String) {
           textXML = textXML ++ "</conditions>"
         }
 
-        textXML = textXML ++ "<continuation>"
-        textXML = textXML ++ statementPT(continuation)
-        textXML = textXML ++ "</continuation>"
+        if (continuation != null) {
+          textXML = textXML ++ "<continuation>"
+          textXML = textXML ++ statementPT(continuation)
+          textXML = textXML ++ "</continuation>"
+        }
 
         textXML ++ "</receive_" ++ label ++ ">"
 
@@ -71,9 +73,11 @@ class STParseTree(sessionType: SessionType, name: String) {
           textXML = textXML ++ "</conditions>"
         }
 
-        textXML = textXML ++ "<continuation>"
-        textXML = textXML ++ statementPT(continuation)
-        textXML = textXML ++ "</continuation>"
+        if (continuation != null) {
+          textXML = textXML ++ "<continuation>"
+          textXML = textXML ++ statementPT(continuation)
+          textXML = textXML ++ "</continuation>"
+        }
 
         textXML ++ "</send_" ++ label ++ ">"
 
@@ -131,10 +135,11 @@ class STParseTree(sessionType: SessionType, name: String) {
     for (typ <- types){
       textXML = textXML ++ typ._1 ++ " : " ++ typ._2 ++ ", "
     }
+    textXML = textXML.dropRight(2)
     textXML
   }
 
-  def conditionPT(conditions : String) = {
+  def conditionPT(conditions : String) : String = {
     var condition_temp = conditions
     condition_temp = condition_temp.replace("&", "&amp;")
     condition_temp = condition_temp.replace("<", "&lt;")

@@ -22,3 +22,10 @@ global protocol BuyTicket(role R, role A, role F) {
 }
 
 S_buy_ticket = ?Request(R : role, A : role, F : role)[check(Price) from R to F].+{!Payment(R : role, A : role, F : role)[approve(Code) from F to R,A], !Refuse(R : role, A : role, F : role)}
+
+also checks if branch removed, does it keep checking that branch?
+
+S_buy_ticket = ?Request(travel: String).!Quote(quote: Int).?Check(payment: Int)[payment > 10].+{
+            !Approve(code: String)[util.approve(code) && (payment==10)].!Ticket(ticket: String)[util.invoice(code) && util.pay(payment)],
+            !Refuse(message: String)[util.refuse(message)]
+        }
