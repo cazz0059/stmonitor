@@ -147,7 +147,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
       case statement @ ReceiveStatement(label, types, condition, _) =>
         //logger.info("Receive "+label+"("+types+")")
         curScope = label
-        checkCondition(label, types, condition)
+        //checkCondition(label, types, condition)
 
         synthMon.handleReceive(statement, statement.continuation)
         synthProtocol.handleReceive(statement, statement.continuation, null)
@@ -156,7 +156,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
       case statement @ SendStatement(label, types, condition, _) =>
         //logger.info("Send "+label+"("+types+")")
         curScope = label
-        checkCondition(label, types, condition)
+        //checkCondition(label, types, condition)
 
         synthMon.handleSend(statement, statement.continuation)
         synthProtocol.handleSend(statement, statement.continuation, null)
@@ -170,7 +170,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
 
         for(choice <- choices) {
           curScope = choice.asInstanceOf[ReceiveStatement].label
-          checkCondition(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types, choice.asInstanceOf[ReceiveStatement].condition)
+          //checkCondition(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types, choice.asInstanceOf[ReceiveStatement].condition)
           synthProtocol.handleReceive(choice.asInstanceOf[ReceiveStatement], choice.asInstanceOf[ReceiveStatement].continuation, statement.label)
 
           walk(choice.asInstanceOf[ReceiveStatement].continuation)
@@ -187,7 +187,7 @@ class STInterpreter(sessionType: SessionType, path: String) {
 
         for(choice <- choices) {
           curScope = choice.asInstanceOf[SendStatement].label
-          checkCondition(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
+          //checkCondition(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
 
           synthProtocol.handleSend(choice.asInstanceOf[SendStatement], choice.asInstanceOf[SendStatement].continuation, statement.label)
           walk(choice.asInstanceOf[SendStatement].continuation)
@@ -423,30 +423,32 @@ class STInterpreter(sessionType: SessionType, path: String) {
    * @param condition The condition to type-check.
    * @return The whether the condition is of type boolean or not.
    */
-  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={
-    if(condition != null) {
-      println(" - checking condition")
-      var stringVariables = ""
-      val identifiersInCondition = getIdentifiers(condition)
-      val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
-      val util = try source.mkString finally source.close()
-      for(identName <- identifiersInCondition){
-        val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
-        stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
-      }
-      val stringCondition = condition // conditionToString(condition)
 
-      val eval = s"""
-           |$util
-           |$stringVariables
-           |$stringCondition
-           |""".stripMargin
-      val tree = toolbox.parse(eval)
-      val checked = toolbox.typecheck(tree)
-      checked.tpe == Boolean
-    }
-    true
-  }
+    // dont need this anymore since its already being done in the solver
+//  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={
+//    if(condition != null) {
+//      println(" - checking condition")
+//      var stringVariables = ""
+//      val identifiersInCondition = getIdentifiers(condition)
+//      val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
+//      val util = try source.mkString finally source.close()
+//      for(identName <- identifiersInCondition){
+//        val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
+//        stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
+//      }
+//      val stringCondition = condition // conditionToString(condition)
+//
+//      val eval = s"""
+//           |$util
+//           |$stringVariables
+//           |$stringCondition
+//           |""".stripMargin
+//      val tree = toolbox.parse(eval)
+//      val checked = toolbox.typecheck(tree)
+//      checked.tpe == Boolean
+//    }
+//    true
+//  }
 
   /**
    * Retrieves the information of an identifier.
