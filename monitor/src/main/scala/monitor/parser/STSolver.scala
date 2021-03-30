@@ -7,6 +7,10 @@ import scala.tools.reflect.ToolBox
 import monitor.model._
 import monitor.model.Scope
 
+//import smtlib.parser.ParserCommands
+import smtlib.parser.ParserTerms
+//import smtlib.theories.Core.{Not, Or}
+
 import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
@@ -23,6 +27,7 @@ class STSolver(sessionType : SessionType, path: String){
   private val toolbox = currentMirror.mkToolBox()
 
   private val helper = new STSolverHelper()
+  private val solver = new STSolverZ3
 
   private var scopes = new mutable.HashMap[String, Scope]()
   private var curScope = "global"
@@ -73,13 +78,13 @@ class STSolver(sessionType : SessionType, path: String){
       case ReceiveStatement(label, types, condition, continuation) =>
         createAndUpdateScope(label) // creates new scope
         checkAndInitVariables(label, types, condition) // puts vars in scopes
-        handlePayloads(label, types) // synths variables in monitor
+        //handlePayloads(label, types) // synths variables in monitor
         initialWalk(continuation)
 
       case SendStatement(label, types, condition, continuation) =>
         createAndUpdateScope(label)
         checkAndInitVariables(label, types, condition)
-        handlePayloads(label, types)
+        //handlePayloads(label, types)
         initialWalk(continuation)
 
       case ReceiveChoiceStatement(label, choices) =>
@@ -87,7 +92,7 @@ class STSolver(sessionType : SessionType, path: String){
         for(choice <- choices) {
           createAndUpdateScope(choice.asInstanceOf[ReceiveStatement].label)
           checkAndInitVariables(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types, choice.asInstanceOf[ReceiveStatement].condition)
-          handlePayloads(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types)
+          //handlePayloads(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types)
           initialWalk(choice.asInstanceOf[ReceiveStatement].continuation)
           curScope = scopes(choice.asInstanceOf[ReceiveStatement].label).parentScope.name
         }
@@ -97,7 +102,7 @@ class STSolver(sessionType : SessionType, path: String){
         for(choice <- choices) {
           createAndUpdateScope(choice.asInstanceOf[SendStatement].label)
           checkAndInitVariables(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
-          handlePayloads(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types)
+          //handlePayloads(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types)
           initialWalk(choice.asInstanceOf[SendStatement].continuation)
           curScope = scopes(choice.asInstanceOf[SendStatement].label).parentScope.name
         }
@@ -126,12 +131,12 @@ class STSolver(sessionType : SessionType, path: String){
         // check the satisfiability of the clauses
         // if redundant, move ot the next functions below
         checkCondition(label, types, condition)
-        val payload = scopes(curScope).assertions
+        val aggConds = scopes(curScope).assertions
 
         // "rebuild parse tree" functions here
         //handleReceive(statement, statement.continuation)
-        println("Verdict : " + payload)
-        if(condition == null || solver(payload)) {
+        println("Verdict : " + aggConds)
+        if(condition == null || solver(aggConds)) {
           ReceiveStatement(label, types, condition, walk(statement.continuation))
         }
         else {
@@ -144,9 +149,9 @@ class STSolver(sessionType : SessionType, path: String){
         println()
         curScope = label
         checkCondition(label, types, condition)
-        val payload = scopes(curScope).assertions
-        println("Verdict : " + payload)
-        if(condition == null || solver(payload)) {
+        val aggConds = scopes(curScope).assertions
+        println("Verdict : " + aggConds)
+        if(condition == null || solver(aggConds)) {
           SendStatement(label, types, condition, walk(statement.continuation))
         }
         else {
@@ -168,11 +173,11 @@ class STSolver(sessionType : SessionType, path: String){
           val currChoice = choice.asInstanceOf[ReceiveStatement]
           curScope = currChoice.label
           checkCondition(currChoice.label, currChoice.types, currChoice.condition)
-          val payload = scopes(curScope).assertions
+          val aggConds = scopes(curScope).assertions
           //synthProtocol.handleReceive(choice.asInstanceOf[ReceiveStatement], choice.asInstanceOf[ReceiveStatement].continuation, statement.label)
 
           println("Verdict : " + currChoice.condition)
-          if (currChoice.condition == null || solver(payload)) {
+          if (currChoice.condition == null || solver(aggConds)) {
             //val solvedChoice : List[Statement] = List(walk(choice.asInstanceOf[ReceiveStatement].continuation))
             solvedChoices += ReceiveStatement(currChoice.label, currChoice.types, currChoice.condition, walk(currChoice.continuation))
             curScope = scopes(currChoice.label).parentScope.name
@@ -199,11 +204,11 @@ class STSolver(sessionType : SessionType, path: String){
           val currChoice = choice.asInstanceOf[SendStatement]
           curScope = currChoice.label
           checkCondition(currChoice.label, currChoice.types, currChoice.condition)
-          val payload = scopes(curScope).assertions
+          val aggConds = scopes(curScope).assertions
 
           //synthProtocol.handleSend(choice.asInstanceOf[SendStatement], choice.asInstanceOf[SendStatement].continuation, statement.label)
           println("Verdict : " + currChoice.condition)
-          if (currChoice.condition == null || solver(payload)) {
+          if (currChoice.condition == null || solver(aggConds)) {
             solvedChoices += SendStatement(currChoice.label, currChoice.types, currChoice.condition, walk(currChoice.continuation))
             curScope = scopes(currChoice.label).parentScope.name
           }
@@ -312,12 +317,14 @@ class STSolver(sessionType : SessionType, path: String){
     // post exams notes
     // this currently just gets current condition. i need to store all conditions of a trace
 
-    print("~~~ CONDITION TREE ~~~\n")
-    print(" - Normal\n")
-    print(show(conditionTree))
-    print("\n - Raw\n")
-    print(showRaw(conditionTree))
-    print("\n")
+//    print("~~~ CONDITION TREE ~~~\n")
+//    print(" - Normal\n")
+//    print(show(conditionTree))
+//    print("\n - Raw\n")
+//    print(showRaw(conditionTree))
+//    print("\n")
+
+
 
     val traverser = new traverser
     traverser.traverse(conditionTree)
@@ -331,19 +338,19 @@ class STSolver(sessionType : SessionType, path: String){
   }
 
   def searchIdent(tmpCurScope: String, identifierName: String): String = {
-    println("///")
-    println("Identifier name: " + identifierName)
-    println("Temp Cur Scope: " + tmpCurScope)
+//    println("///")
+//    println("Identifier name: " + identifierName)
+//    println("Temp Cur Scope: " + tmpCurScope)
     if(!scopes(tmpCurScope).variables.contains(identifierName)){
       if(scopes(tmpCurScope).parentScope==null){
-        println("Parent Scope: NULL")
+//        println("Parent Scope: NULL")
         throw new Exception("STSolver - Identifier "+identifierName+" not in scope")
       }
-      println("Parent Scope: " + scopes(tmpCurScope).parentScope.name)
-      println("###")
+//      println("Parent Scope: " + scopes(tmpCurScope).parentScope.name)
+//      println("###")
       searchIdent(scopes(tmpCurScope).parentScope.name, identifierName)
     } else {
-      println("###")
+//      println("###")
       tmpCurScope
     }
   }
@@ -352,14 +359,14 @@ class STSolver(sessionType : SessionType, path: String){
   // it saves payloads (in monitor)
   // idk if i keep this or not
   // re-evaluate structure of function calling
-  def handlePayloads(label: String, types: Map[String, String]): Unit ={ // arrange this so that it checks payloads
-    val mon = new StringBuilder()
-    mon.append("\t\tobject "+label+" {\n")
-    for(typ <- types){
-      mon.append("\t\t\tvar "+typ._1+": "+typ._2+" = _\n")
-    }
-    mon.append("\t\t}\n")
-  }
+//  def handlePayloads(label: String, types: Map[String, String]): Unit ={ // arrange this so that it checks payloads
+//    val mon = new StringBuilder()
+//    mon.append("\t\tobject "+label+" {\n")
+//    for(typ <- types){
+//      mon.append("\t\t\tvar "+typ._1+": "+typ._2+" = _\n")
+//    }
+//    mon.append("\t\t}\n")
+//  }
 
   /**
    * Type checks a condition of type String using the scala compiler. First, the identifiers are extracted
@@ -387,9 +394,11 @@ class STSolver(sessionType : SessionType, path: String){
 
       println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
       println("Parent scope: " + scopes(curScope).parentScope.name)
-      println("Parent scope Payload: " + scopes(curScope).parentScope.assertions)
+      println("Parent scope AggConds: " + scopes(curScope).parentScope.assertions)
 
       var tmpScope = curScope
+
+      solver.compareToLemmas("hello")
 
       breakable {
         while (scopes(tmpScope).parentScope.name != "global") {
@@ -410,25 +419,25 @@ class STSolver(sessionType : SessionType, path: String){
       //        scopes(curScope).assertions = "(" + scopes(curScope).parentScope.assertions + ") && (" + condition + ")"
       //      }
 
-      val payload = scopes(curScope).assertions
-      val identifiersInPayload = getIdentifiers(payload) // will become getClauses
+      val aggConds = scopes(curScope).assertions
+      val identifiersInAggConds = getIdentifiers(aggConds) // will become getClauses
       println("Current scope: " + curScope)
-      println("Idents in Payload: " + identifiersInPayload)
+      println("Idents in Payload: " + identifiersInAggConds)
 
       // getting util file contents
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
       val util = try source.mkString finally source.close()
 
-      for(identName <- identifiersInPayload){
+      for(identName <- identifiersInAggConds){
         val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
         stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;\n"
       }
 
 
 
-      val stringPayload = payload//condition //helper.conditionToString(condition)
+      val stringAggConds = aggConds//condition //helper.conditionToString(condition)
       println("Current scope: " + curScope)
-      println("Payload: " + stringPayload)
+      println("AggConds: " + stringAggConds)
 
       //println("\n ~ Util >>>\n " ++ util ++ "\n<<<")
       //println("\n ~ String Variables >>>\n " ++ stringVariables ++ "\n<<<")
@@ -437,7 +446,7 @@ class STSolver(sessionType : SessionType, path: String){
       val eval = s"""
                     |$util
                     |$stringVariables
-                    |$stringPayload
+                    |$stringAggConds
                     |""".stripMargin
       val tree = toolbox.parse(eval) // research on what toolbox does and what these functions do
       //println("\n ~ Tree >>>\n " ++ tree.toString() ++ "\n<<<")
@@ -473,6 +482,10 @@ class STSolver(sessionType : SessionType, path: String){
       // no what, there s nothing to calculate
       // see steps in evernote
       //solver() // solver goes in here
+
+
+      //    /*val term : ParserTerms = */solver.processConditions(condition)
+      print(solver.checkUnsat(conditions))
 
       // user input for now
       println("Is this SAT?")

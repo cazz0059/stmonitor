@@ -1,0 +1,1 @@
+S_simple = rec X.(?Get(ans : Boolean)[ans].!Confirm(msg : String)[ans])
