@@ -212,6 +212,15 @@ class STSolverHelper {
 
   }
 
+  def aggCondsToString(aggConds : List[String]) : String = {
+    var aggCondsString = aggConds.head
+    val tempAggConds = aggConds.tail
+    for (cond <- tempAggConds) {
+      aggCondsString = "(" + aggCondsString + ") && (" + cond + ")"
+    }
+    aggCondsString
+  }
+
   def rebuilding(statement: Statement) : String = {
     statement match {
       case ReceiveStatement(label, types, condition, continuation) =>

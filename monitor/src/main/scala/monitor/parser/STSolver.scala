@@ -176,7 +176,7 @@ class STSolver(sessionType : SessionType, path: String){
           val aggConds = scopes(curScope).assertions
           //synthProtocol.handleReceive(choice.asInstanceOf[ReceiveStatement], choice.asInstanceOf[ReceiveStatement].continuation, statement.label)
 
-          println("Verdict : " + currChoice.condition)
+          println("Verdict : " + aggConds)
           if (currChoice.condition == null || solver(aggConds)) {
             //val solvedChoice : List[Statement] = List(walk(choice.asInstanceOf[ReceiveStatement].continuation))
             solvedChoices += ReceiveStatement(currChoice.label, currChoice.types, currChoice.condition, walk(currChoice.continuation))
@@ -207,7 +207,7 @@ class STSolver(sessionType : SessionType, path: String){
           val aggConds = scopes(curScope).assertions
 
           //synthProtocol.handleSend(choice.asInstanceOf[SendStatement], choice.asInstanceOf[SendStatement].continuation, statement.label)
-          println("Verdict : " + currChoice.condition)
+          println("Verdict : " + aggConds)
           if (currChoice.condition == null || solver(aggConds)) {
             solvedChoices += SendStatement(currChoice.label, currChoice.types, currChoice.condition, walk(currChoice.continuation))
             curScope = scopes(currChoice.label).parentScope.name
@@ -312,6 +312,8 @@ class STSolver(sessionType : SessionType, path: String){
 //  }
 
   def getIdentifiers(condition: String): List[String] = {
+
+    println(" - Condition: " + condition)
     val conditionTree = toolbox.parse(condition)
 
     // post exams notes
@@ -324,8 +326,6 @@ class STSolver(sessionType : SessionType, path: String){
 //    print(showRaw(conditionTree))
 //    print("\n")
 
-
-
     val traverser = new traverser
     traverser.traverse(conditionTree)
     //print("\n" ++ traverser. ++ "\n\n") // see what more i can do with this traversed tree
@@ -335,6 +335,23 @@ class STSolver(sessionType : SessionType, path: String){
 
     // maybe all the above can be done using the new models implemented?
     traverser.identifiers.distinct.filter(_ != "util")
+  }
+
+  def getAggIdentifiers(aggConds : List[String]) : List[String] = {
+    val traverser = new traverser
+    var identifiers = ListBuffer[String]()
+
+    for (condition <- aggConds) {
+      val conditionTree = toolbox.parse(condition)
+      traverser.traverse(conditionTree)
+      val identifiersList = traverser.identifiers.distinct.filter(_ != "util")
+      println("Getting identifiers...")
+      for (ident <- identifiersList) {
+        println(ident)
+        identifiers += ident
+      }
+    }
+    identifiers.toList
   }
 
   def searchIdent(tmpCurScope: String, identifierName: String): String = {
@@ -397,6 +414,7 @@ class STSolver(sessionType : SessionType, path: String){
       println("Parent scope AggConds: " + scopes(curScope).parentScope.assertions)
 
       var tmpScope = curScope
+      var aggConds = ""
 
       solver.compareToLemmas("hello")
 
@@ -404,13 +422,18 @@ class STSolver(sessionType : SessionType, path: String){
         while (scopes(tmpScope).parentScope.name != "global") {
           tmpScope = scopes(tmpScope).parentScope.name
           println("TempScope: " + tmpScope)
-          if (scopes(tmpScope).assertions != "") {
-            scopes(curScope).assertions = "(" + scopes(tmpScope).assertions + ") && (" + condition + ")"
+          if (scopes(tmpScope).assertions != List()) {
+            println(" # Adding to list")
+            println(scopes(tmpScope).assertions.toString())
+            scopes(curScope).assertions = condition :: scopes(tmpScope).assertions
+            //aggConds = helper.aggCondsToString(condition :: scopes(tmpScope).assertions)//"(" + scopes(tmpScope).assertions + ") && (" + condition + ")"
             break
           }
         }
-        scopes(curScope).assertions = condition
+        println(" # The only condition")
+        scopes(curScope).assertions = List(condition)
       }
+      aggConds = helper.aggCondsToString(scopes(curScope).assertions)
 
       //      if (scopes(tmpScope).parentScope.assertions == "") {
       //        scopes(curScope).assertions = condition
@@ -419,8 +442,8 @@ class STSolver(sessionType : SessionType, path: String){
       //        scopes(curScope).assertions = "(" + scopes(curScope).parentScope.assertions + ") && (" + condition + ")"
       //      }
 
-      val aggConds = scopes(curScope).assertions
-      val identifiersInAggConds = getIdentifiers(aggConds) // will become getClauses
+      //val aggConds = scopes(curScope).assertions
+      val identifiersInAggConds = getIdentifiers(aggConds) // will become getClauses <- WHAT
       println("Current scope: " + curScope)
       println("Idents in Payload: " + identifiersInAggConds)
 
@@ -432,8 +455,6 @@ class STSolver(sessionType : SessionType, path: String){
         val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
         stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;\n"
       }
-
-
 
       val stringAggConds = aggConds//condition //helper.conditionToString(condition)
       println("Current scope: " + curScope)
@@ -460,21 +481,30 @@ class STSolver(sessionType : SessionType, path: String){
 //
 //  }
 
-  def solver(conditions : String): Boolean ={
+  def solver(aggConds : List[String]): Boolean ={
     println(" ::::::::::::::::: SOLVER ::::::::::::::::::::")
 
-    if(conditions != null) {
-      println("\n ~ Conditions >>>\n " ++ conditions ++ "\n<<<")
-      val parsedConditions = toolbox.parse(conditions)
-      println("\n ~ Parsed Conditions >>>\n " ++ parsedConditions.toString() ++ "\n<<<")
+    if(aggConds != null) {
+      println("\n ~ Conditions >>>\n " ++ aggConds.toString() ++ "\n<<<")
+      // this is in the solver itself, no need
+//      val parsedConditions = toolbox.parse(conditions)
+//      println("\n ~ Parsed Conditions >>>\n " ++ parsedConditions.toString() ++ "\n<<<")
+
+      var variables : Map[String, String] = Map()
+      val identifiersInAggConds = getAggIdentifiers(aggConds)
+      for(identName <- identifiersInAggConds){
+        val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
+        println("val "+identName+": "+identifier._2+"= ???;")
+        variables = variables + (identName -> identifier._2)
+      }
 
       // getting util file contents
       val source = scala.io.Source.fromFile(path + "/util.scala", "utf-8")
       val util = try source.mkString finally source.close()
 
       // need to parse conditions
-      val parsedUtil = toolbox.parse(util)
-      println("\n ~ Parsed Util >>>\n " ++ parsedUtil.toString() ++ "\n<<<")
+//      val parsedUtil = toolbox.parse(util)
+//      println("\n ~ Parsed Util >>>\n " ++ parsedUtil.toString() ++ "\n<<<")
       //val cnf = helper.getCurrentConditions(condition)
       //helper.cnfToString(cnf)
 
@@ -485,7 +515,52 @@ class STSolver(sessionType : SessionType, path: String){
 
 
       //    /*val term : ParserTerms = */solver.processConditions(condition)
-      print(solver.checkUnsat(conditions))
+
+      val currentCond = aggConds.head
+      var unsatConds = ""
+      println(" - Testing condition itself")
+      var sat = executeSolver(currentCond, variables, util)
+      println(" - Done")
+      if(!sat) {
+        unsatConds = currentCond
+      }
+      if(aggConds.length > 1) {
+        println("################# First cond satisfiable")
+        var tempAggConds = aggConds
+        var tempCurrCond = currentCond
+        breakable {
+          while (sat) {
+            println("################## Hence we proceed")
+            tempAggConds = tempAggConds.tail
+            for (aggCond <- tempAggConds) {
+              val aggCondsString = helper.aggCondsToString(currentCond :: List(aggCond))
+              println("##################### NOW TESTING CONDITIONS:")
+              println(aggCondsString)
+              sat = executeSolver(aggCondsString, variables, util)
+              println("##################### Tested conditions")
+              if (!sat) {
+                println("THIS BRANCH IS UNREACHABLE")
+                println("UNSATISFIABLE CONDITIONS")
+                println(aggCondsString)
+                break
+                // add to lemmas
+              }
+            }
+            if (tempAggConds.length > 1) {
+              tempCurrCond = helper.aggCondsToString(tempCurrCond :: List(tempAggConds.head))
+            }
+            else {
+              println("############ Have to stop since all conditions tested")
+              break
+            }
+          }
+        }
+        if (sat) {
+          println("THIS BRANCH IS REACHABLE")
+        }
+      }
+
+      // ----------------------------------------------------------------------------------------
 
       // user input for now
       println("Is this SAT?")
@@ -504,6 +579,14 @@ class STSolver(sessionType : SessionType, path: String){
 
     //val z3 = new Z3Context("MODEL" -> true)
     // this returns sat/unsat?
+  }
+
+  private def executeSolver(condition : String, variables : Map[String, String], util : String) : Boolean = {
+    println("SMT-LIB FORMAT ##")
+    val smtlibFormat = solver.generateSMTLIBString(condition, variables, util)
+    println(smtlibFormat)
+    val outputStream = solver.processInput(solver.convertConditionsToSMTLIB(smtlibFormat))
+    solver.checkUnsat(outputStream)
   }
 
 //  def rebuildSessionType(statement: Statement) : Statement = {

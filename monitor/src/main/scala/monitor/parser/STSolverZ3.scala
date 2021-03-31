@@ -1,25 +1,13 @@
 package monitor.parser
 
-//import smtlib.parser.ParserCommands
-import smtlib.lexer.Tokens.OParen
-import smtlib.parser.ParserTerms
 import smtlib.trees.Commands._
-//import smtlib.theories.Core.{Not, Or}
-//import smtlib.trees.Commands.Command
-
-//import java.io._
 import scala.collection.mutable.ListBuffer
-import scala.sys.process._
-//import smtlib.parser.Commands._
-//import scala.tools.nsc.transform.patmat.Solving
-//import monitor.model.CNF
-//package z3.scala
 
 import java.io._
 
-import smtlib.trees.Terms._
-
-import smtlib.theories.Core._
+import scala.reflect.runtime._
+import scala.reflect.runtime.universe._
+import scala.tools.reflect.ToolBox
 
 import scala.sys.process._
 
@@ -30,6 +18,8 @@ class STSolverZ3 {
   private lazy val z3_path = {
     sys.env.getOrElse("Z3_EXE", "z3.exe")
   }
+
+  private val toolbox = currentMirror.mkToolBox()
 
   // find way to eliminate conditions that have nothing to do with the unsatisfiability - saveUnsatConds()
   private var lemmas : List[String] = List() // SMT read this and see if it is the same semantics
@@ -59,36 +49,96 @@ class STSolverZ3 {
 //    unsatCNF
 //  }
 
-  def generateSMTLIBString (condition : String) : String = {
+  object traverser extends Traverser {
+    // check if it traverses
+    // make it add to the string
+    private var smtlibString : String = ""
+    def getSmtlibString() : String = {
+      smtlibString
+    }
+    def clearString() : Unit = {
+      smtlibString = ""
+    }
+    override def traverse(tree: Tree): Unit = tree match {
+      case Apply(fun, args) =>
+        println("Apply ##")
+        super.traverse(fun)
+        super.traverseTrees(args)
+      case Ident(name) =>
+        println("Ident " + name + " ##")
+        smtlibString = smtlibString + "(assert " + name + ")\n"
+      case _ =>
+        println("Other ##")
+        super.traverse(tree)
+    }
+  }
+
+  def generateSMTLIBString(conditions : String, variables : Map[String, String], util : String) : String = {
     // use toolbox to parse through command
     // use case matching to traverse the created tree recursively
     // in each case write the corresponding smtlib format command
 
-    var smtlibConditions =
-      """
-        |(declare-const x Int)
-        |(declare-const y Int)
-        |(declare-const z Int)
-        |(declare-const a1 (Array Int Int))
-        |(declare-const a2 (Array Int Int))
-        |(declare-const a3 (Array Int Int))
-        |(assert (= (select a1 x) x))
-        |(assert (= (store a1 x y) a1))
-        |(assert (not (= x y)))
-        |(check-sat)
-        |""".stripMargin
+    var smtlibVariables = ""
+
+    for (variable <- variables) {
+      if (variable._2.contains("ean")) {
+        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " Bool)\n"
+      }
+      else {
+        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " " + variable._2 + ")\n"
+      }
+    }
+
+    println("Declared variables ##")
+    println(smtlibVariables)
+
+    val conditionTree = toolbox.parse(conditions)
+    println(" ++++++++++ CONDITION TREE ++++++++++++++")
+    println(showRaw(conditionTree))
+    println(" ++++++++++++++++++++++++++++++++++++++++")
+    var utilTree = conditionTree // temporary value
+    if (conditions.contains("util")) {
+      utilTree = toolbox.parse(util)
+    }
+    else {
+      utilTree = null
+    }
+
+    traverser.traverse(conditionTree)
+
+    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString() + "(check-sat)"
+    traverser.clearString()
+
+    println("--- SMTLIB ---")
+    println(smtlibConditions)
+    println("--------------")
+
+
+//    smtlibConditions =
+//      """
+//        |(declare-const x Int)
+//        |(declare-const y Int)
+//        |(declare-const z Int)
+//        |(declare-const a1 (Array Int Int))
+//        |(declare-const a2 (Array Int Int))
+//        |(declare-const a3 (Array Int Int))
+//        |(assert (= (select a1 x) x))
+//        |(assert (= (store a1 x y) a1))
+//        |(assert (not (= x y)))
+//        |(check-sat)
+//        |""".stripMargin
 
     smtlibConditions
   }
 
-  def convertConditionsToSMTLIB(conditions : String) : Stream[Command] = { // change conditions to list to separate conditions of different labels
+  def convertConditionsToSMTLIB(smtlibConditions : String) : Stream[Command] = { // change conditions to list to separate conditions of different labels
 
 
     // I CANT USE TERM
 
-    var smtlibConditions = generateSMTLIBString(conditions)
-    println("``` SMTLIB COMMANDS ```")
-    println(smtlibConditions)
+    //var smtlibConditions = generateSMTLIBString(conditions, variables, util)
+    //println("``` SMTLIB COMMANDS ```")
+    //println(smtlibConditions)
 
     val is = new java.io.StringReader(smtlibConditions)
     val lexer = new smtlib.lexer.Lexer(is)
@@ -99,11 +149,11 @@ class STSolverZ3 {
     val script: List[Command] = {
       var cmds = new ListBuffer[Command]
       var cmd : Command = parser.parseCommand //SetOption(ProduceModels(true))  //parser.parseCommand
-      println("Command: " + cmd)
+      print("Command: " + cmd)
       while(cmd != null) {
         cmds.append(cmd)
         cmd = parser.parseCommand
-        println("Command: " + cmd)
+        print("Command: " + cmd)
       }
       cmds.toList
     }
@@ -133,17 +183,17 @@ class STSolverZ3 {
 //    propositionalVariables(formula) map declareVariable
 //  }
 
-  def processConditions(conditions : String) : Stream[Command] = { // ParserTerms
-    // do the things to read the smtlib file and change them to term NO TO COMMANDS
-    // OR
-    // there s an smtlib command that makes z3 check sat (see z3 easy tutorial) <-- TRY THIS FIRST
-    // ^ this actually doesn't work nevermind
-
-
-    val script = convertConditionsToSMTLIB(conditions)
-
-    script
-  }
+//  def processConditions(commandStream : Stream[Command]) : Stream[Command] = { // ParserTerms
+//    // do the things to read the smtlib file and change them to term NO TO COMMANDS
+//    // OR
+//    // there s an smtlib command that makes z3 check sat (see z3 easy tutorial) <-- TRY THIS FIRST
+//    // ^ this actually doesn't work nevermind
+//
+//
+//    val script = convertConditionsToSMTLIB(conditions, variables, util)
+//
+//    script
+//  }
   // COMBINE THE ABOVE AND BELOW TWO FUNCTIONS
 //  private def createInputStream(formula: Term): Stream[Command] = {
 //    // find a method to convert the conditions into smtlib format easily
@@ -166,11 +216,11 @@ class STSolverZ3 {
 //  }
 
 
-  private def processInput(aggConds: String): (OutputStream => Unit) = {
+  def processInput(commandStream : Stream[Command]): OutputStream => Unit = {
     (stdin: OutputStream) => {
       val printer = new PrintWriter(new BufferedOutputStream(stdin))
-      processConditions(aggConds).foreach(
-        (cmd) => {
+      commandStream.foreach(
+        cmd => {
           printer.write(cmd.toString())
         }
       )
@@ -178,13 +228,14 @@ class STSolverZ3 {
     }
   }
 
-  def checkUnsat(aggConds : String) : String = { // change this to accept formula
+  def checkUnsat(outputStream : OutputStream => Unit) : Boolean = { // change this to accept formula
     // return nothing if satisfiable
     // save current condition
     // for each combination of previous conditions
     //    check satisfiability with last condition
     //    return if the unsat part found, dont continue loop to find more complex combinations
-    // start with last cond and 1 other cond
+    // start with last cond
+    //    and 1 other cond
     // keep adding combinations from there
 
     // SOMEHOW MAKE THIS STUFF BELOW WORK LIKE STUFF ABOVE
@@ -195,7 +246,7 @@ class STSolverZ3 {
     val process = Process(z3_path, Seq("-smt2", "-in"))
     var result: String = null
     val processIO = new ProcessIO(
-      processInput(aggConds),
+      outputStream,
       stdout => {
         val reader = new BufferedReader(new InputStreamReader(stdout))
         result = reader.readLine()
@@ -209,9 +260,11 @@ class STSolverZ3 {
     assert(handle.exitValue() == 0)
     assert(result == "sat" || result == "unsat")
     if (result == "sat") {
-      "SAT ~~~~~~~~~~~~~~~~~~~" // Some(Map())
+      println("\nSAT ~~~~~~~~~~~~~~~~~~~\n") // Some(Map())
+      true
     } else {
-      "UNSAT ~~~~~~~~~~~~~~~~~~" // None
+      println("\nUNSAT ~~~~~~~~~~~~~~~~~~\n") // None
+      false
     }
 
 
