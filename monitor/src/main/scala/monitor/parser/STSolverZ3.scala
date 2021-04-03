@@ -59,14 +59,27 @@ class STSolverZ3 {
     def clearString() : Unit = {
       smtlibString = ""
     }
+
+    // remember that embedded operations exist, so i cant just put "assert" in front of all the operators
+    //    try and build the conditions (select and apply) recursively before adding the assert
+    // use smt-lib List (recursive) some combination of that to unfold a recursive function???
+    // or Tree??
+    // z3 cannot prove by induction, so unfolding needs to take place to prove by deduction
     override def traverse(tree: Tree): Unit = tree match {
       case Apply(fun, args) =>
-        println("Apply ##")
+        println("Apply " + fun.toString() + " args: " + args.toString() + " ##")
         super.traverse(fun)
         super.traverseTrees(args)
       case Ident(name) =>
         println("Ident " + name + " ##")
         smtlibString = smtlibString + "(assert " + name + ")\n"
+      case Select(ident, op) =>
+        println("Select " + ident.toString() + " operator: " + op.toString + " ##")
+        var tmpOp = op.toString
+        tmpOp = tmpOp.replace("unary_$bang", "not ")
+        smtlibString = smtlibString + "(assert (" + tmpOp + ident.toString() + " ))\n"
+      case List(elts) =>
+        println("List " + elts.toString + " ##")
       case _ =>
         println("Other ##")
         super.traverse(tree)
