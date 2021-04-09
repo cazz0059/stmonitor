@@ -21,6 +21,10 @@ class STSolverZ3 {
 
   private val toolbox = currentMirror.mkToolBox()
 
+  // needs to be parsed for each new condition combination
+  private var utilTree : Tree = null
+  private var smtlibVariables = ""
+
   // find way to eliminate conditions that have nothing to do with the unsatisfiability - saveUnsatConds()
   private var lemmas : List[String] = List() // SMT read this and see if it is the same semantics
   //private val cnfTransformer = new TransformToCnf()
@@ -53,7 +57,7 @@ class STSolverZ3 {
     // check if it traverses
     // make it add to the string
     private var smtlibString : String = ""
-    def getSmtlibString() : String = {
+    def getSmtlibString: String = {
       smtlibString
     }
     def clearString() : Unit = {
@@ -66,20 +70,31 @@ class STSolverZ3 {
     // or Tree??
     // z3 cannot prove by induction, so unfolding needs to take place to prove by deduction
     override def traverse(tree: Tree): Unit = tree match {
-      case Apply(fun, args) =>
+      case Apply(fun, args) => // and are "ignored"? since the addition of the assert statements make up the conjunction
         println("Apply " + fun.toString() + " args: " + args.toString() + " ##")
-        super.traverse(fun)
-        super.traverseTrees(args)
-      case Ident(name) =>
+//        if (fun.toString().contains("util.")) {
+//          smtlibVariables = smtlibVariables + "(declare-fun " + fun.toString() + " Bool)\n"
+//        }
+//        else {
+          super.traverse(fun)
+          super.traverseTrees(args)
+//        }
+      case Ident(name) => // is this only accessed when the identifier is alone? check
         println("Ident " + name + " ##")
         smtlibString = smtlibString + "(assert " + name + ")\n"
-      case Select(ident, op) =>
+      case Select(ident, op) => // til now only accessed when there us unary, ands are accessed by apply
         println("Select " + ident.toString() + " operator: " + op.toString + " ##")
         var tmpOp = op.toString
         tmpOp = tmpOp.replace("unary_$bang", "not ")
         smtlibString = smtlibString + "(assert (" + tmpOp + ident.toString() + " ))\n"
-      case List(elts) =>
+      case List(elts) => // when is this accessed
         println("List " + elts.toString + " ##")
+      case Block(arg1, arg2) => // for util functions
+        println("Block:")
+        println(arg1.toString())
+        println("##")
+        println(arg2.toString())
+        println("##")
       case _ =>
         println("Other ##")
         super.traverse(tree)
@@ -91,7 +106,7 @@ class STSolverZ3 {
     // use case matching to traverse the created tree recursively
     // in each case write the corresponding smtlib format command
 
-    var smtlibVariables = ""
+
 
     for (variable <- variables) {
       if (variable._2.contains("ean")) {
@@ -102,24 +117,45 @@ class STSolverZ3 {
       }
     }
 
-    println("Declared variables ##")
-    println(smtlibVariables)
-
-    val conditionTree = toolbox.parse(conditions)
-    println(" ++++++++++ CONDITION TREE ++++++++++++++")
-    println(showRaw(conditionTree))
-    println(" ++++++++++++++++++++++++++++++++++++++++")
-    var utilTree = conditionTree // temporary value
     if (conditions.contains("util")) {
       utilTree = toolbox.parse(util)
+      println(" ++++++++++++++ UTIL TREE ++++++++++++++")
+      println(showRaw(utilTree))
+      println(" +++++++++++++++++++++++++++++++++++++++")
+      //traverser.traverse(utilTree)
+      // now build one whole assert statement based on each function in the util tree
+      // no, the types of the functions are declared first and then the functions and their parameters are inputted and asserted
+
+      utilTree match {
+        case Block(block, empty) =>
+          block match {
+            case List(elts) =>
+
+            case Apply(fun, args) =>
+              smtlibVariables = smtlibVariables + "(declare-fun " + fun.toString() + " )\n"
+          }
+        case _ =>
+          println("This is not a block")
+      }
+
     }
     else {
       utilTree = null
     }
 
+    println("Declared variables ##")
+    println(smtlibVariables)
+
+    val conditionTree = toolbox.parse(conditions)
+    println(" ++++++++++++++ CONDITION TREE ++++++++++++++")
+    println(showRaw(conditionTree))
+    println(" ++++++++++++++++++++++++++++++++++++++++++++")
+    //var utilTree = conditionTree // temporary value
+
+
     traverser.traverse(conditionTree)
 
-    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString() + "(check-sat)"
+    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString + "(check-sat)"
     traverser.clearString()
 
     println("--- SMTLIB ---")

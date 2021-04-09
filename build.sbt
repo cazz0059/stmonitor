@@ -42,7 +42,8 @@ lazy val monitor = (project in file("monitor")).
       "org.scala-lang" % "scala-compiler" % scalaVersion.value,
       "ch.qos.logback" % "logback-classic" % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-      "com.regblanc" %% "scala-smtlib" % "0.2.2"
+      "com.regblanc" %% "scala-smtlib" % "0.2.2",
+      "org.scalameta" %% "scalameta" % "4.4.12"
     )
   )
 
