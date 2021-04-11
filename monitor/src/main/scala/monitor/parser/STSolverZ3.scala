@@ -3,11 +3,15 @@ package monitor.parser
 import smtlib.trees.Commands._
 import scala.collection.mutable.ListBuffer
 
+import com.microsoft.z3._
+
 import java.io._
 
-import scala.reflect.runtime._
-import scala.reflect.runtime.universe._
-import scala.tools.reflect.ToolBox
+//import scala.reflect.runtime._
+//import scala.reflect.runtime.universe._
+//import scala.tools.reflect.ToolBox
+
+import scala.meta._
 
 import scala.sys.process._
 
@@ -19,7 +23,7 @@ class STSolverZ3 {
     sys.env.getOrElse("Z3_EXE", "z3.exe")
   }
 
-  private val toolbox = currentMirror.mkToolBox()
+  //private val toolbox = currentMirror.mkToolBox()
 
   // needs to be parsed for each new condition combination
   private var utilTree : Tree = null
@@ -118,14 +122,18 @@ class STSolverZ3 {
     }
 
     if (conditions.contains("util")) {
-      utilTree = toolbox.parse(util)
+      //utilTree = toolbox.parse(util)
+      utilTree = util.parse[Source].get
       println(" ++++++++++++++ UTIL TREE ++++++++++++++")
-      println(showRaw(utilTree))
+      //println(showRaw(utilTree))
+      println(utilTree.toString())
       println(" +++++++++++++++++++++++++++++++++++++++")
       //traverser.traverse(utilTree)
       // now build one whole assert statement based on each function in the util tree
       // no, the types of the functions are declared first and then the functions and their parameters are inputted and asserted
+      // nope, change the function called into z3 and use assert statement on returned boolean value (im bad at explaining)
 
+      /*
       utilTree match {
         case Block(block, empty) =>
           block match {
@@ -137,6 +145,7 @@ class STSolverZ3 {
         case _ =>
           println("This is not a block")
       }
+       */
 
     }
     else {
@@ -146,16 +155,18 @@ class STSolverZ3 {
     println("Declared variables ##")
     println(smtlibVariables)
 
-    val conditionTree = toolbox.parse(conditions)
+    //val conditionTree = toolbox.parse(conditions)
+    val conditionTree = conditions.parse[Term].get
     println(" ++++++++++++++ CONDITION TREE ++++++++++++++")
-    println(showRaw(conditionTree))
+    //println(showRaw(conditionTree))
+    println(conditionTree.toString())
     println(" ++++++++++++++++++++++++++++++++++++++++++++")
     //var utilTree = conditionTree // temporary value
 
 
     traverser.traverse(conditionTree)
 
-    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString + "(check-sat)"
+    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString + "(check-sat)\n(get-model)"
     traverser.clearString()
 
     println("--- SMTLIB ---")

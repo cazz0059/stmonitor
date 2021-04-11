@@ -7,8 +7,8 @@ S_arithmetic =&{
         !Answer2(z : Int)[z == (0-x)],
         !Invalid2()[x == 0]
    },
-   ?Sqrt(x : Int)[x > 0].+{
-        !Answer3(y : Int)[(x >= 0) && (y == util.square_root(x))],
-        !Invalid3()[x < 0]
+   ?Divide(x : Int, y : Int)[y > 0].+{
+        !Answer3(z : Int)[(y != 0) && (z == util.divide(x, y))],
+        !Invalid3()[y < 0]
     }
 }
