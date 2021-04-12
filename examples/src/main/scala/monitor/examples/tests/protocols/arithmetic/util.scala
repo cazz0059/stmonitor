@@ -1,4 +1,4 @@
-//package monitor.examples.tests.protocols.arithmetic
+package monitor.examples.tests.protocols.arithmetic
 import scala.math._
 
 object util {

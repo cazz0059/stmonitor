@@ -516,6 +516,10 @@ class STSolver(sessionType : SessionType, path: String){
 
       //    /*val term : ParserTerms = */solver.processConditions(condition)
 
+      // handling util first
+      // ~~~
+      // ~~~
+
       val currentCond = aggConds.head
       var unsatConds = ""
       println(" - Testing condition itself")
@@ -583,10 +587,10 @@ class STSolver(sessionType : SessionType, path: String){
 
   private def executeSolver(condition : String, variables : Map[String, String], util : String) : Boolean = {
     println("SMT-LIB FORMAT ##")
-    val smtlibFormat = solver.generateSMTLIBString(condition, variables, util)
+    val smtlibFormat = solver.generateFormulas(condition, variables, util)
     println(smtlibFormat)
-    val outputStream = solver.processInput(solver.convertConditionsToSMTLIB(smtlibFormat))
-    solver.checkUnsat(outputStream)
+    //val outputStream = solver.processInput(solver.convertConditionsToSMTLIB(smtlibFormat))
+    solver.checkUnsat()
   }
 
 //  def rebuildSessionType(statement: Statement) : Statement = {
@@ -605,20 +609,20 @@ class STSolver(sessionType : SessionType, path: String){
 
   // REBUILDING PARSE TREE
   // check out synthmon/synthprotocol setup for these functions
-  def handleReceive(statement: ReceiveStatement, nextStatement: Statement): Unit = {
-
-  }
-
-  def handleSend(statement: SendStatement, nextStatement: Statement): Unit = {
-
-  }
-
-  def handleReceiveChoice(statement: ReceiveChoiceStatement): Unit = {
-
-  }
-
-  def handleSendChoice(statement: SendChoiceStatement): Unit ={
-
-  }
+//  def handleReceive(statement: ReceiveStatement, nextStatement: Statement): Unit = {
+//
+//  }
+//
+//  def handleSend(statement: SendStatement, nextStatement: Statement): Unit = {
+//
+//  }
+//
+//  def handleReceiveChoice(statement: ReceiveChoiceStatement): Unit = {
+//
+//  }
+//
+//  def handleSendChoice(statement: SendChoiceStatement): Unit ={
+//
+//  }
 
 }
