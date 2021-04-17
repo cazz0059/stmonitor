@@ -25,17 +25,26 @@ class STSolverZ3 {
 
   //private val toolbox = currentMirror.mkToolBox()
 
-  // needs to be parsed for each new condition combination
-  private var utilTree : Tree = null
   //private var smtlibVariables = ""
   private var variablesInt : Map[String, IntExpr] = Map()
   private var variablesBool : Map[String, BoolExpr] = Map()
+
+  private var utilFuncs : Map[String, Model] = Map()
+  private var utilCtx : Map[String, Context] = Map()
 
   private val ctx: Context = new Context(new java.util.HashMap[String, String])
 
   // find way to eliminate conditions that have nothing to do with the unsatisfiability - saveUnsatConds()
   private var lemmas : List[String] = List() // SMT read this and see if it is the same semantics
   //private val cnfTransformer = new TransformToCnf()
+
+  def pause() : Unit = {
+    scala.io.StdIn.readLine()
+  }
+
+  def createContext(funcName : String) : Unit = {
+    utilCtx = utilCtx + (funcName -> new Context(new java.util.HashMap[String, String]))
+  }
 
   def addLemma(aggConds : String): Unit = {
     lemmas = aggConds :: lemmas
@@ -71,6 +80,17 @@ class STSolverZ3 {
     }
     def clearSolver() : Unit = {
       solver = ctx.mkSolver()
+    }
+
+    private var utilSolver: Map[String, com.microsoft.z3.Solver] = Map()
+    def createUtilSolver(name : String) : Unit = {
+      utilSolver = utilSolver + (name -> utilCtx(name).mkSolver())
+    }
+    def getUtilSolver(name : String): com.microsoft.z3.Solver = {
+      utilSolver(name)
+    }
+    def clearUtilSolver() : Unit = {
+      utilSolver = Map()
     }
 
 //    def traverse(tree: Tree): Unit =
@@ -153,27 +173,55 @@ class STSolverZ3 {
 //    }
 
     // these return all possible combinations of a desired type
-    def getBoolExpr(arg : Term) : BoolExpr = arg match {
-      case Term.Name(name) => traverseBoolVar(Term.Name(name))
-      case Term.ApplyInfix(a, b, c, d) => traverseBoolInfix(Term.ApplyInfix(a, b, c, d))
-      case Term.ApplyUnary(o, a) => traverseBoolUnary(Term.ApplyUnary(o, a))
+    def getBoolExpr(arg : Term, context: Context) : BoolExpr = arg match {
+      case Lit.Boolean(value) =>
+        val temp_bool_const =  context.mkBoolConst("temp_traverse_bool_const")
+        var temp_and : BoolExpr = null
+
+        if(!value) temp_and = context.mkAnd(temp_bool_const, context.mkNot(temp_bool_const))
+        else temp_and = temp_bool_const
+
+        temp_and
+
+      case Term.Name(name) => traverseBoolVar(Term.Name(name), context)
+
+      case Term.ApplyInfix(a, b, c, d) => traverseBoolInfix(Term.ApplyInfix(a, b, c, d), context)
+
+      case Term.ApplyUnary(o, a) => traverseBoolUnary(Term.ApplyUnary(o, a), context)
+
       case _ =>
         println("TERM TYPE MISMATCH : BoolExpr")
         null
     }
 
-    def getIntExpr(arg : Term) : IntExpr = arg match {
-      case Term.Name(name) => traverseIntVar(Term.Name(name))
+    def getIntExpr(arg : Term, context: Context) : IntExpr = arg match {
+      case Term.Name(name) => traverseIntVar(Term.Name(name), context)
       case _ =>
         println("TERM TYPE MISMATCH : IntExpr")
         null
     }
 
-    def getArithExpr(arg : Term) : ArithExpr[IntSort] = arg match {
-      case Term.ApplyInfix(a, b, c, d) => traverseArithInfix(Term.ApplyInfix(a, b, c, d))
+    def getArithExpr(arg : Term, context: Context) : ArithExpr[IntSort] = arg match {
+      case Term.ApplyInfix(a, b, c, d) => traverseArithInfix(Term.ApplyInfix(a, b, c, d), context)
       case _ =>
         println("TERM TYPE MISMATCH : ArithExpr")
         null
+    }
+
+    def addFuncCall(name : String, solv : Solver) : Unit = {
+      val func = utilFuncs(name)
+      // creating new scope for function
+      // issue when scoping if there are vars in conds and in util func with same name
+      // another limitation : util functions are all of type bool
+      solv.push()
+      func match {
+        case boolFunc @ BoolExpr =>
+          solv.add(boolFunc)
+        case _ =>
+          println("Util function not boolean type")
+          pause()
+      }
+      solv.pop()
     }
 
     // remember that embedded operations exist, so i cant just put "assert" in front of all the operators
@@ -181,7 +229,7 @@ class STSolverZ3 {
     // use smt-lib List (recursive) some combination of that to unfold a recursive function???
     // or Tree??
     // z3 cannot prove by induction, so unfolding needs to take place to prove by deduction
-    def traverseBoolVar(term : Term.Name) : BoolExpr = term match {
+    def traverseBoolVar(term : Term.Name, context: Context) : BoolExpr = term match {
       // probably is a singular boolean variable, as in any other case it would form part of a formula
       case Term.Name(name) =>
         println("Term name " + name + " ##")
@@ -189,7 +237,7 @@ class STSolverZ3 {
         //solver.add(variablesBool(name))
     }
 
-    def traverseIntVar(term : Term.Name) : IntExpr = term match {
+    def traverseIntVar(term : Term.Name, context: Context) : IntExpr = term match {
       // probably is a singular boolean variable, as in any other case it would form part of a formula
       case Term.Name(name) =>
         println("Term name " + name + " ##")
@@ -197,15 +245,15 @@ class STSolverZ3 {
       //solver.add(variablesBool(name))
     }
 
-    def traverseBoolInfix(term : Term.ApplyInfix) : BoolExpr = term match {
+    def traverseBoolInfix(term : Term.ApplyInfix, context: Context) : BoolExpr = term match {
       case Term.ApplyInfix(lhs, Term.Name("&&"), tArgs, args) =>
         println("Term apply infix " + lhs.toString() + " && " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsBool = getBoolExpr(lhs)
+        var lhsBool = getBoolExpr(lhs, context)
         for (arg <- args)
-          lhsBool = ctx.mkAnd(lhsBool, getBoolExpr(arg))
+          lhsBool = context.mkAnd(lhsBool, getBoolExpr(arg, context))
         lhsBool
 
       case Term.ApplyInfix(lhs, Term.Name("||"), tArgs, args) =>
@@ -213,22 +261,22 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsBool = getBoolExpr(lhs)
+        var lhsBool = getBoolExpr(lhs, context)
         for (arg <- args)
-          lhsBool = ctx.mkOr(lhsBool, getBoolExpr(arg))
+          lhsBool = context.mkOr(lhsBool, getBoolExpr(arg, context))
         lhsBool
     }
 
-    def traverseArithInfix(term : Term.ApplyInfix) : ArithExpr[IntSort] = term match {
+    def traverseArithInfix(term : Term.ApplyInfix, context: Context) : ArithExpr[IntSort] = term match {
       case Term.ApplyInfix(lhs, Term.Name("+"), tArgs, args) =>
         // has to be recursive over the term names
         println("Term apply infix " + lhs.toString() + " + " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsInt = ctx.mkAdd(getIntExpr(lhs)) // ctx.mkIntConst("0")
+        var lhsInt = context.mkAdd(getIntExpr(lhs, context)) // ctx.mkIntConst("0")
         for (arg <- args)
-          lhsInt = ctx.mkAdd(lhsInt, getIntExpr(arg))
+          lhsInt = context.mkAdd(lhsInt, getIntExpr(arg, context))
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("-"), tArgs, args) =>
@@ -236,9 +284,9 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsInt = ctx.mkAdd(getIntExpr(lhs))
+        var lhsInt = context.mkAdd(getIntExpr(lhs, context))
         for (arg <- args)
-          lhsInt = ctx.mkSub(lhsInt, getIntExpr(arg))
+          lhsInt = context.mkSub(lhsInt, getIntExpr(arg, context))
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("*"), tArgs, args) =>
@@ -246,9 +294,9 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsInt = ctx.mkAdd(getIntExpr(lhs))
+        var lhsInt = context.mkAdd(getIntExpr(lhs, context))
         for (arg <- args)
-          lhsInt = ctx.mkMul(lhsInt, getIntExpr(arg))
+          lhsInt = context.mkMul(lhsInt, getIntExpr(arg, context))
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("/"), tArgs, args) =>
@@ -256,59 +304,119 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsInt = ctx.mkAdd(getIntExpr(lhs))
+        var lhsInt = context.mkAdd(getIntExpr(lhs, context))
         for (arg <- args)
-          lhsInt = ctx.mkDiv(lhsInt, getIntExpr(arg))
+          lhsInt = context.mkDiv(lhsInt, getIntExpr(arg, context))
         lhsInt
 
     }
 
-    def traverseBoolUnary(term : Term.ApplyUnary) : BoolExpr = term match {
+    def traverseBoolUnary(term : Term.ApplyUnary, context: Context) : BoolExpr = term match {
       case Term.ApplyUnary(null, arg) =>
-        getBoolExpr(arg)
+        getBoolExpr(arg, context)
       case Term.ApplyUnary(op, arg) =>
-        ctx.mkNot(getBoolExpr(arg))
+        context.mkNot(getBoolExpr(arg, context))
     }
 
-    def traverseIntUnary(term : Term.ApplyUnary) : ArithExpr[IntSort] = term match {
+    def traverseIntUnary(term : Term.ApplyUnary, context: Context) : ArithExpr[IntSort] = term match {
       case Term.ApplyUnary(null, arg) =>
-        getIntExpr(arg)
+        getIntExpr(arg, context)
       case Term.ApplyUnary(op, arg) =>
         println("Term unary " + arg)
-        ctx.mkSub(null, getIntExpr(arg)) // ctx.mkBVNeg(ctx.mkInt2BV(getIntExpr(arg)))
+        context.mkSub(null, getIntExpr(arg, context)) // ctx.mkBVNeg(ctx.mkInt2BV(getIntExpr(arg)))
     }
 
-    def traverseUtil():Unit={} // for getting util specifically
+    // called only from conditions, not util file
+    def traverseFuncBool(app : Term.Apply, context : Context) : Unit = app match { // does the adding itself
+      case app @ Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) =>
+        // this is function call within util function
+        if (utilFuncs(name) != null) {
+          addFuncCall(name, solver)
+        }
+    }
 
-    def traverse(conditionTree : Term):Unit={
-      solver.add(getBoolExpr(conditionTree))
-    } // call to traverse normal
-  }
+    // only called by util
+    def traverseBlock(name : String, stats : List[Stat], context: Context) : Unit = {
+      for (stat <- stats) {
+        stat match { // there will be a lot here
+          case bool @ Lit.Boolean(value) =>
+            // add assert statement
+            utilSolver(name).add(getBoolExpr(bool, context))
+          case app @ Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) => // handle params
+            // this is function call within util function
+            if (utilFuncs(name) != null) {
+              addFuncCall(name, utilSolver(name))
+            }
+          case _  =>
+            println("Statement does not exist")
+            pause()
 
-  def generateFormulas(conditions : String, variables : Map[String, String], util : String) : String = {
-    // use toolbox to parse through command
-    // use case matching to traverse the created tree recursively
-    // in each case write the corresponding smtlib format command
-
-
-
-    for (variable <- variables) {
-//      if (variable._2.contains("ean")) {
-//        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " Bool)\n"
-//      }
-//      else {
-//        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " " + variable._2 + ")\n"
-//      }
-      variable._2 match {
-        case "Int" =>
-          variablesInt = variablesInt + (variable._1 -> ctx.mkIntConst(variable._1))
-        case "Boolean" =>
-          variablesBool = variablesBool + (variable._1 -> ctx.mkBoolConst(variable._1))
-        case _ =>
+        }
       }
     }
 
-    if (conditions.contains("util")) {
+    def traverseDefns(defns : List[Stat]) : Unit = {
+      for (defn <- defns) {
+        defn match {
+          case Defn.Def(a, Term.Name(name), b, params, typ, Term.Block(stats)) => // handle params by saving them as variables
+            createContext(name)
+            createUtilSolver(name)
+            traverseBlock(name, stats, utilCtx(name))
+          case _ =>
+            println("TERM TYPE MISMATCH : Definition")
+            null
+        }
+      }
+    }
+
+    def traverseObject(obj : Defn.Object) : Unit = obj match { // doesnt return anything, just builds the map
+      case Defn.Object(mods, name, Template(a, b, c, list)) =>
+        traverseDefns(list)
+      case _ =>
+        println("TERM TYPE MISMATCH : Object(2)")
+        null
+    }
+
+    def traverseUtil(utilTree : Tree):Unit = {
+      utilTree match{
+        case Source(stats) =>
+          for (stat <- stats) {
+            stat match {
+              case obj @ Defn.Object(mods, name, template) =>
+                traverseObject(obj)
+            }
+          }
+        case _ =>
+          println("TERM TYPE MISMATCH : Object")
+      }
+
+      for (solv <- utilSolver) {
+        if(solv._2.check == Status.SATISFIABLE) {
+          val model = solv._2.getModel
+          println("Model " + solv._1 + " : ")
+          println(model.toString)
+          utilFuncs = utilFuncs + (solv._1 -> model)
+        }
+        else {
+          println("There is no model, function is unsatisfiable")
+          utilFuncs = utilFuncs + (solv._1 -> null)
+          // no model assignment if unsat
+        }
+      }
+
+    } // for getting util specifically
+
+    def traverse(conditionTree : Term):Unit={
+      solver.add(getBoolExpr(conditionTree, ctx))
+    } // call to traverse normal
+  }
+
+  def generateUtilFunctions(util : String) : Unit = {
+
+    // needs to be parsed for each new condition combination
+    var utilTree : Tree = null
+
+    if (util.contains("def")) {
       //utilTree = toolbox.parse(util)
       utilTree = util.parse[Source].get
       println(" ++++++++++++++ UTIL TREE ++++++++++++++")
@@ -334,10 +442,77 @@ class STSolverZ3 {
       }
        */
 
+      pause()
+      traverser.traverseUtil(utilTree)
+
+      for (context <- utilCtx.toIterator) {
+        println("Function : " + context._1)
+        println(traverser.getUtilSolver(context._1).toString)
+        println()
+      }
+
     }
     else {
       utilTree = null
     }
+
+    println("Util traversed")
+    pause()
+  }
+
+  def generateFormulas(conditions : String, variables : Map[String, String]) : Unit = {
+    // use toolbox to parse through command
+    // use case matching to traverse the created tree recursively
+    // in each case write the corresponding smtlib format command
+
+
+
+    for (variable <- variables) {
+//      if (variable._2.contains("ean")) {
+//        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " Bool)\n"
+//      }
+//      else {
+//        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " " + variable._2 + ")\n"
+//      }
+      variable._2 match {
+        case "Int" =>
+          variablesInt = variablesInt + (variable._1 -> ctx.mkIntConst(variable._1))
+        case "Boolean" =>
+          variablesBool = variablesBool + (variable._1 -> ctx.mkBoolConst(variable._1))
+        case _ =>
+      }
+    }
+
+//    if (conditions.contains("util")) {
+//      //utilTree = toolbox.parse(util)
+//      utilTree = util.parse[Source].get
+//      println(" ++++++++++++++ UTIL TREE ++++++++++++++")
+//      //println(showRaw(utilTree))
+//      println(utilTree.structure)
+//      println(" +++++++++++++++++++++++++++++++++++++++")
+//      //traverser.traverse(utilTree)
+//      // now build one whole assert statement based on each function in the util tree
+//      // no, the types of the functions are declared first and then the functions and their parameters are inputted and asserted
+//      // nope, change the function called into z3 and use assert statement on returned boolean value (im bad at explaining)
+//
+//      /*
+//      utilTree match {
+//        case Block(block, empty) =>
+//          block match {
+//            case List(elts) =>
+//
+//            case Apply(fun, args) =>
+//              smtlibVariables = smtlibVariables + "(declare-fun " + fun.toString() + " )\n"
+//          }
+//        case _ =>
+//          println("This is not a block")
+//      }
+//       */
+//
+//    }
+//    else {
+//      utilTree = null
+//    }
 
     //println("Declared variables ##")
     //println(smtlibVariables)
@@ -350,13 +525,12 @@ class STSolverZ3 {
     println(" ++++++++++++++++++++++++++++++++++++++++++++")
     //var utilTree = conditionTree // temporary value
 
-    val ans = scala.io.StdIn.readLine()
-
+    pause()
 
     traverser.traverse(conditionTree)
 
     println("Traversed")
-    scala.io.StdIn.readLine()
+    pause()
 
 //    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString + "(check-sat)\n(get-model)"
 
@@ -382,8 +556,6 @@ class STSolverZ3 {
 
 //    smtlibConditions
 
-
-    ans
   }
 
   def convertConditionsToSMTLIB(smtlibConditions : String) : Stream[Command] = { // change conditions to list to separate conditions of different labels

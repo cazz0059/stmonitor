@@ -68,6 +68,12 @@ class STSolver(sessionType : SessionType, path: String){
     logger.info("Initial Walk Complete")
     println()
 
+    // getting util file contents
+    val source = scala.io.Source.fromFile(path + "/util.scala", "utf-8")
+    val util = try source.mkString finally source.close()
+    generateUtilFunctionModels(util)
+    println("Util function generated ##")
+
     solvedST.name = sessionType.name
     solvedST.statement = walk(sessionType.statement)
     solvedST//sessionType
@@ -498,9 +504,7 @@ class STSolver(sessionType : SessionType, path: String){
         variables = variables + (identName -> identifier._2)
       }
 
-      // getting util file contents
-      val source = scala.io.Source.fromFile(path + "/util.scala", "utf-8")
-      val util = try source.mkString finally source.close()
+
 
       // need to parse conditions
 //      val parsedUtil = toolbox.parse(util)
@@ -523,7 +527,7 @@ class STSolver(sessionType : SessionType, path: String){
       val currentCond = aggConds.head
       var unsatConds = ""
       println(" - Testing condition itself")
-      var sat = executeSolver(currentCond, variables, util)
+      var sat = executeSolver(currentCond, variables)
       println(" - Done")
       if(!sat) {
         unsatConds = currentCond
@@ -540,7 +544,7 @@ class STSolver(sessionType : SessionType, path: String){
               val aggCondsString = helper.aggCondsToString(currentCond :: List(aggCond))
               println("##################### NOW TESTING CONDITIONS:")
               println(aggCondsString)
-              sat = executeSolver(aggCondsString, variables, util)
+              sat = executeSolver(aggCondsString, variables)
               println("##################### Tested conditions")
               if (!sat) {
                 println("THIS BRANCH IS UNREACHABLE")
@@ -567,15 +571,18 @@ class STSolver(sessionType : SessionType, path: String){
       // ----------------------------------------------------------------------------------------
 
       // user input for now
-      println("Is this SAT?")
+//      println("Is this SAT?")
       val ans = scala.io.StdIn.readLine()
-      if (ans == "no") {
-        println("Answer is no, so UNSAT")
-        false
-      }
-      else {
-        true
-      }
+      if (sat) true
+      else false
+
+//      if (ans == "no") {
+//        println("Answer is no, so UNSAT")
+//        false
+//      }
+//      else {
+//        true
+//      }
     }
     else {
       true
@@ -585,10 +592,13 @@ class STSolver(sessionType : SessionType, path: String){
     // this returns sat/unsat?
   }
 
-  private def executeSolver(condition : String, variables : Map[String, String], util : String) : Boolean = {
-    println("SMT-LIB FORMAT ##")
-    val smtlibFormat = solver.generateFormulas(condition, variables, util)
-    println(smtlibFormat)
+  private def generateUtilFunctionModels(util : String) : Unit = {
+    solver.generateUtilFunctions(util)
+  }
+
+  private def executeSolver(condition : String, variables : Map[String, String]) : Boolean = {
+    println("EXECUTING SOLVER ##")
+    solver.generateFormulas(condition, variables)
     //val outputStream = solver.processInput(solver.convertConditionsToSMTLIB(smtlibFormat))
     solver.checkUnsat()
   }
