@@ -13,7 +13,7 @@ import java.io._
 
 import scala.meta._
 
-import scala.sys.process._
+//import scala.sys.process._
 
 //import z3
 
@@ -39,6 +39,7 @@ class STSolverZ3 {
   //private val cnfTransformer = new TransformToCnf()
 
   def pause() : Unit = {
+    print("Pausing...")
     scala.io.StdIn.readLine()
   }
 
@@ -175,11 +176,11 @@ class STSolverZ3 {
     // these return all possible combinations of a desired type
     def getBoolExpr(arg : Term, context: Context) : BoolExpr = arg match {
       case Lit.Boolean(value) =>
-        val temp_bool_const =  context.mkBoolConst("temp_traverse_bool_const")
+        val temp_bool_const = context.mkBoolConst("temp_traverse_bool_const")
         var temp_and : BoolExpr = null
 
         if(!value) temp_and = context.mkAnd(temp_bool_const, context.mkNot(temp_bool_const))
-        else temp_and = temp_bool_const
+        else temp_and = temp_bool_const // why did i set it to null? because if it is itself it is always sat
 
         temp_and
 
@@ -188,6 +189,10 @@ class STSolverZ3 {
       case Term.ApplyInfix(a, b, c, d) => traverseBoolInfix(Term.ApplyInfix(a, b, c, d), context)
 
       case Term.ApplyUnary(o, a) => traverseBoolUnary(Term.ApplyUnary(o, a), context)
+
+      case funcCall @ Term.Apply(fun, args) =>
+        traverseFuncBool(funcCall, context)
+        null
 
       case _ =>
         println("TERM TYPE MISMATCH : BoolExpr")
@@ -208,20 +213,67 @@ class STSolverZ3 {
         null
     }
 
-    def addFuncCall(name : String, solv : Solver) : Unit = {
+    def interpret(name : String, interpretation : Expr[_], context : Context) : BoolExpr = {
+      // FIX TO ACCEPT ARITHMETIC ASSERTIONS AS WELL
+      val inter = interpretation.toString
+      val nameConst = context.mkBoolConst(name)
+      if (inter == "true") {
+        null
+      }
+      else if (inter == "false") {
+        context.mkAnd(nameConst, context.mkNot(nameConst))
+      }
+      else {
+        println("INTERPRETATION MATCHES NOTHING")
+        null
+      }
+    }
+
+//    def interpret(name : String, interpretation : Int, context : Context) : IntExpr = {
+//
+//    }
+
+    // called from traverse func call, which is called by get bool expr
+    def addFuncCall(name : String, context : Context) : ListBuffer[Expr[_]] = {
       val func = utilFuncs(name)
       // creating new scope for function
       // issue when scoping if there are vars in conds and in util func with same name
       // another limitation : util functions are all of type bool
-      solv.push()
-      func match {
-        case boolFunc @ BoolExpr =>
-          solv.add(boolFunc)
-        case _ =>
-          println("Util function not boolean type")
-          pause()
+      //solv.push()
+      //val boolFunc = getBoolExpr(func, context)
+//      func match {
+//        case boolFunc @ BoolExpr =>
+//          solv.add(boolFunc)
+//        case _ =>
+//          println("Util function not boolean type")
+//          pause()
+//      }
+       // ----------------------------------------------------------------------------------------------------------
+      val constDecls = func.getConstDecls
+      var interList : ListBuffer[Expr[_]] = ListBuffer()
+      for (constDecl <- constDecls) { // rebuild declarations by adding constants
+        println("Constant Decl: " + constDecl.toString)
+        val name = constDecl.getName.toString
+        context.mkBoolConst(name) // find out how to do ints as well
+        //val declKind = constDecl.getDeclKind
+        //println("Decl Kind: " + declKind)
+        //if ()
+        val interpretation = func.getConstInterp(constDecl) // this is an IDE issue
+        println("Interpretation: " + interpretation)
+
+        val inter = interpret(name, interpretation, context)
+        interList+=inter
+//        if (inter != null)
+//          solv.add(inter)
+        pause()
       }
-      solv.pop()
+      // get all the declarations
+      // replace the parameters - change the names in the function, beware overriding variables in the function,
+      //         fix this by changing the name of the declaration within the function to not match that outside
+      // get interpretation for each declaration
+
+      //solv.pop()
+      interList
     }
 
     // remember that embedded operations exist, so i cant just put "assert" in front of all the operators
@@ -326,16 +378,35 @@ class STSolverZ3 {
         context.mkSub(null, getIntExpr(arg, context)) // ctx.mkBVNeg(ctx.mkInt2BV(getIntExpr(arg)))
     }
 
-    // called only from conditions, not util file
-    def traverseFuncBool(app : Term.Apply, context : Context) : Unit = app match { // does the adding itself
-      case app @ Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) =>
-        // this is function call within util function
-        if (utilFuncs(name) != null) {
-          addFuncCall(name, solver)
-        }
+    ///--------------------------------
+    def aggregateInter(interList : ListBuffer[Expr[_]], context : Context) : BoolExpr = {
+      if(interList.tail.nonEmpty)
+        context.mkAnd(interList.head.asInstanceOf[Expr[BoolSort]], aggregateInter(interList.tail, context))
+      else
+        interList.head.asInstanceOf[BoolExpr]
     }
 
+    // called only from conditions, not util file
+    // gets list of all interpretations in the function call as a big AND of assertions in BoolExpr format, called from getBoolExpr to be used anywhere
+    def traverseFuncBool(app : Term.Apply, context : Context) : BoolExpr = app match { // does the adding itself
+      case app @ Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) =>
+        // this is function call within util function
+        var interAgg : BoolExpr = null
+        if (utilFuncs(name) != null) {
+          val interList = addFuncCall(name, context)//, solver)
+          interAgg = aggregateInter(interList, context)
+        }
+        pause()
+        interAgg
+      case _  =>
+        println("Function invalid")
+        pause()
+        null
+    }
+    ///-----------------------------------
+
     // only called by util
+    // function contents
     def traverseBlock(name : String, stats : List[Stat], context: Context) : Unit = {
       for (stat <- stats) {
         stat match { // there will be a lot here
@@ -344,8 +415,14 @@ class STSolverZ3 {
             utilSolver(name).add(getBoolExpr(bool, context))
           case app @ Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) => // handle params
             // this is function call within util function
+            // adds all interpretations as a list of assertions in the solver of the function
             if (utilFuncs(name) != null) {
-              addFuncCall(name, utilSolver(name))
+              // new scope to store new assertions
+              utilSolver(name).push()
+              val interList = addFuncCall(name, context)//, utilSolver(name))
+              for (inter <- interList)
+                utilSolver(name).add(inter.asInstanceOf[Expr[BoolSort]]) // ------- this instance of may cause some issues but shouldnt really
+              utilSolver(name).pop()
             }
           case _  =>
             println("Statement does not exist")
@@ -374,7 +451,6 @@ class STSolverZ3 {
         traverseDefns(list)
       case _ =>
         println("TERM TYPE MISMATCH : Object(2)")
-        null
     }
 
     def traverseUtil(utilTree : Tree):Unit = {
@@ -390,16 +466,19 @@ class STSolverZ3 {
           println("TERM TYPE MISMATCH : Object")
       }
 
+      println("Util traversed ::")
       for (solv <- utilSolver) {
         if(solv._2.check == Status.SATISFIABLE) {
           val model = solv._2.getModel
           println("Model " + solv._1 + " : ")
           println(model.toString)
           utilFuncs = utilFuncs + (solv._1 -> model)
+          pause()
         }
         else {
           println("There is no model, function is unsatisfiable")
           utilFuncs = utilFuncs + (solv._1 -> null)
+          pause()
           // no model assignment if unsat
         }
       }
@@ -671,15 +750,21 @@ class STSolverZ3 {
     //val formula = True() // processConditions(aggConds)
     //val
 
+    // TO CHECK
+    // check if this is returning the correct full model, because i think i am passing context in the parameters when i should be pointing to global vars of contexts
+    // in that case pass name and if util or normal related context and solvers
     println("Checking the following ->")
     println(traverser.getSolver.toString)
+    pause()
     if(traverser.getSolver.check == Status.SATISFIABLE) {
       println("\nSAT ~~~~~~~~~~~~~~~~~~~\n")
+      pause()
       traverser.clearSolver()
       true
     }
     else {
       println("\nUNSAT ~~~~~~~~~~~~~~~~~~~\n")
+      pause()
       traverser.clearSolver()
       false
     }
