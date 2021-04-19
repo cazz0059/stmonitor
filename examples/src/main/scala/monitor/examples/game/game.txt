@@ -1,0 +1,8 @@
+Term.ApplyInfix(
+    Term.ApplyInfix(Term.Name("num"), Term.Name(">"), Nil, List(Lit.Int(0))),
+    Term.Name("&&"),
+    Nil,
+    List(
+        Term.ApplyInfix(Term.Name("num"), Term.Name("<"), Nil, List(Lit.Int(10)))
+    )
+)

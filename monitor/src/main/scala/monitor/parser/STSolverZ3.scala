@@ -81,6 +81,7 @@ class STSolverZ3 {
     }
     def clearSolver() : Unit = {
       solver = ctx.mkSolver()
+      count = 0
     }
 
     private var utilSolver: Map[String, com.microsoft.z3.Solver] = Map()
@@ -92,6 +93,12 @@ class STSolverZ3 {
     }
     def clearUtilSolver() : Unit = {
       utilSolver = Map()
+      count = 0
+    }
+
+    private var count = 0
+    def incCount() : Unit = {
+      count+=1
     }
 
 //    def traverse(tree: Tree): Unit =
@@ -176,13 +183,16 @@ class STSolverZ3 {
     // these return all possible combinations of a desired type
     def getBoolExpr(arg : Term, context: Context) : BoolExpr = arg match {
       case Lit.Boolean(value) =>
-        val temp_bool_const = context.mkBoolConst("temp_traverse_bool_const")
+        // cannot have this constant param name, there may be others in the same function
+        val temp_bool_const = context.mkBoolConst("temp_traverse_bool_const_" + count)
+        incCount()
         var temp_and : BoolExpr = null
 
         if(!value) temp_and = context.mkAnd(temp_bool_const, context.mkNot(temp_bool_const))
         else temp_and = temp_bool_const // why did i set it to null? because if it is itself it is always sat
 
         temp_and
+
 
       case Term.Name(name) => traverseBoolVar(Term.Name(name), context)
 
@@ -199,14 +209,37 @@ class STSolverZ3 {
         null
     }
 
-    def getIntExpr(arg : Term, context: Context) : IntExpr = arg match {
+    // call getArithExpr as well
+    // update like the one above
+    def getIntExpr(arg : Term, context: Context) : ArithExpr[_] = arg match {
+
+      case Lit.Int(value) =>
+        // return the value as an IntExpr
+        println("Literal : Int")
+        pause()
+        val intVal : ArithExpr[_] = context.mkInt(value)
+        intVal
+
       case Term.Name(name) => traverseIntVar(Term.Name(name), context)
+
+      case term @ Term.ApplyInfix(a, b, c, d) =>
+        val arithExpr : IntExpr = getArithExpr(term, context).asInstanceOf
+        println("Checking as instance of IntExpr from ArithExpr (infix)")
+        pause()
+        arithExpr
+
+      case Term.ApplyUnary(o, a) =>
+        val arithExpr = traverseIntUnary(Term.ApplyUnary(o, a), context)
+        println("Checking as instance of IntExpr from ArithExpr (unary)")
+        pause()
+        arithExpr
+
       case _ =>
         println("TERM TYPE MISMATCH : IntExpr")
         null
     }
 
-    def getArithExpr(arg : Term, context: Context) : ArithExpr[IntSort] = arg match {
+    def getArithExpr(arg : Term, context: Context) : ArithExpr[_] = arg match {
       case Term.ApplyInfix(a, b, c, d) => traverseArithInfix(Term.ApplyInfix(a, b, c, d), context)
       case _ =>
         println("TERM TYPE MISMATCH : ArithExpr")
@@ -304,8 +337,11 @@ class STSolverZ3 {
           println("Note: There are more args in this infix")
 
         var lhsBool = getBoolExpr(lhs, context)
-        for (arg <- args)
-          lhsBool = context.mkAnd(lhsBool, getBoolExpr(arg, context))
+        for (arg <- args) {
+          val rhsBool = getBoolExpr(arg, context)
+          if (rhsBool != null)
+            lhsBool = context.mkAnd(lhsBool, rhsBool)
+        }
         lhsBool
 
       case Term.ApplyInfix(lhs, Term.Name("||"), tArgs, args) =>
@@ -314,12 +350,83 @@ class STSolverZ3 {
           println("Note: There are more args in this infix")
 
         var lhsBool = getBoolExpr(lhs, context)
-        for (arg <- args)
-          lhsBool = context.mkOr(lhsBool, getBoolExpr(arg, context))
+        for (arg <- args) {
+          val rhsBool = getBoolExpr(arg, context)
+          if (rhsBool != null)
+            lhsBool = context.mkOr(lhsBool, rhsBool)
+        }
         lhsBool
+
+      case Term.ApplyInfix(lhs, Term.Name("<"), tArgs, args) =>
+        println("Term apply infix " + lhs.toString() + " < " + args.head.toString())
+        if(args.length > 1)
+          println("Note: There are more args in this infix")
+
+        val lhsInt = getIntExpr(lhs, context)
+        val rhsInt = getIntExpr(args.head, context)
+        println("Checking lhs: " + lhsInt + " and rhs: " + rhsInt)
+        val lt = context.mkBVSLT(lhsInt.asInstanceOf[Expr[BitVecSort]], rhsInt.asInstanceOf[Expr[BitVecSort]])
+        println("Testing as instance of: " + lt)
+        pause()
+        lt
+
+      case Term.ApplyInfix(lhs, Term.Name(">"), tArgs, args) =>
+        println("Term apply infix " + lhs.toString() + " > " + args.head.toString())
+        if(args.length > 1)
+          println("Note: There are more args in this infix")
+
+        val lhsInt = getIntExpr(lhs, context)
+        val rhsInt = getIntExpr(args.head, context)
+        val gt = context.mkBVSGT(lhsInt.asInstanceOf[Expr[BitVecSort]], rhsInt.asInstanceOf[Expr[BitVecSort]])
+        println("Testing as instance of: " + gt)
+        pause()
+        gt
+
+      case Term.ApplyInfix(lhs, Term.Name("<="), tArgs, args) =>
+        println("Term apply infix " + lhs.toString() + " <= " + args.head.toString())
+        if(args.length > 1)
+          println("Note: There are more args in this infix")
+
+        val lhsInt = getIntExpr(lhs, context)
+        val rhsInt = getIntExpr(args.head, context)
+        val lte = context.mkBVSLE(lhsInt.asInstanceOf[Expr[BitVecSort]], rhsInt.asInstanceOf[Expr[BitVecSort]])
+        println("Testing as instance of: " + lte)
+        pause()
+        lte
+
+      case Term.ApplyInfix(lhs, Term.Name(">="), tArgs, args) =>
+        println("Term apply infix " + lhs.toString() + " >= " + args.head.toString())
+        if(args.length > 1)
+          println("Note: There are more args in this infix")
+
+        val lhsInt = getIntExpr(lhs, context)
+        val rhsInt = getIntExpr(args.head, context)
+        val gte = context.mkBVSGE(lhsInt.asInstanceOf[Expr[BitVecSort]], rhsInt.asInstanceOf[Expr[BitVecSort]])
+        println("Testing as instance of: " + gte)
+        pause()
+        gte
+
+      case Term.ApplyInfix(arg, Term.Name("=="), tArgs, args) =>
+        println("Term apply infix " + arg.toString() + " == " + args.head.toString())
+        if(args.length > 1)
+          println("Note: There are more args in this infix")
+
+        var lhs : Expr[_] = getIntExpr(arg, context)
+        var rhs : Expr[_] = null
+        if(lhs != null) {
+          rhs = getIntExpr(args.head, context)
+        }
+        else {
+          lhs = getBoolExpr(args.head, context)
+          rhs = getBoolExpr(args.head, context)
+        }
+        val gte = context.mkEq(lhs, rhs)
+        println("Testing as instance of: " + gte)
+        pause()
+        gte
     }
 
-    def traverseArithInfix(term : Term.ApplyInfix, context: Context) : ArithExpr[IntSort] = term match {
+    def traverseArithInfix(term : Term.ApplyInfix, context: Context) : ArithExpr[_] = term match {
       case Term.ApplyInfix(lhs, Term.Name("+"), tArgs, args) =>
         // has to be recursive over the term names
         println("Term apply infix " + lhs.toString() + " + " + args.head.toString())
@@ -327,8 +434,11 @@ class STSolverZ3 {
           println("Note: There are more args in this infix")
 
         var lhsInt = context.mkAdd(getIntExpr(lhs, context)) // ctx.mkIntConst("0")
-        for (arg <- args)
-          lhsInt = context.mkAdd(lhsInt, getIntExpr(arg, context))
+        for (arg <- args){
+          val rhsBool = getBoolExpr(arg, context)
+          if (rhsBool != null)
+            lhsInt = context.mkAdd(lhsInt, getIntExpr(arg, context))
+        }
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("-"), tArgs, args) =>
@@ -337,8 +447,11 @@ class STSolverZ3 {
           println("Note: There are more args in this infix")
 
         var lhsInt = context.mkAdd(getIntExpr(lhs, context))
-        for (arg <- args)
-          lhsInt = context.mkSub(lhsInt, getIntExpr(arg, context))
+        for (arg <- args) {
+          val rhsBool = getBoolExpr(arg, context)
+          if (rhsBool != null)
+            lhsInt = context.mkSub(lhsInt, getIntExpr(arg, context))
+        }
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("*"), tArgs, args) =>
@@ -347,8 +460,11 @@ class STSolverZ3 {
           println("Note: There are more args in this infix")
 
         var lhsInt = context.mkAdd(getIntExpr(lhs, context))
-        for (arg <- args)
-          lhsInt = context.mkMul(lhsInt, getIntExpr(arg, context))
+        for (arg <- args) {
+          val rhsBool = getBoolExpr(arg, context)
+          if (rhsBool != null)
+            lhsInt = context.mkMul(lhsInt, getIntExpr(arg, context))
+        }
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("/"), tArgs, args) =>
@@ -357,8 +473,11 @@ class STSolverZ3 {
           println("Note: There are more args in this infix")
 
         var lhsInt = context.mkAdd(getIntExpr(lhs, context))
-        for (arg <- args)
-          lhsInt = context.mkDiv(lhsInt, getIntExpr(arg, context))
+        for (arg <- args) {
+          val rhsBool = getBoolExpr(arg, context)
+          if (rhsBool != null)
+            lhsInt = context.mkDiv(lhsInt, getIntExpr(arg, context))
+        }
         lhsInt
 
     }
@@ -370,7 +489,7 @@ class STSolverZ3 {
         context.mkNot(getBoolExpr(arg, context))
     }
 
-    def traverseIntUnary(term : Term.ApplyUnary, context: Context) : ArithExpr[IntSort] = term match {
+    def traverseIntUnary(term : Term.ApplyUnary, context: Context) : ArithExpr[_] = term match {
       case Term.ApplyUnary(null, arg) =>
         getIntExpr(arg, context)
       case Term.ApplyUnary(op, arg) =>
@@ -389,7 +508,7 @@ class STSolverZ3 {
     // called only from conditions, not util file
     // gets list of all interpretations in the function call as a big AND of assertions in BoolExpr format, called from getBoolExpr to be used anywhere
     def traverseFuncBool(app : Term.Apply, context : Context) : BoolExpr = app match { // does the adding itself
-      case app @ Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) =>
+      case Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) =>
         // this is function call within util function
         var interAgg : BoolExpr = null
         if (utilFuncs(name) != null) {
