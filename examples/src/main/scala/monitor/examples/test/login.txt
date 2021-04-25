@@ -1,0 +1,23 @@
+Defn.Def(
+    Nil,
+    Term.Name("validateAuth"),
+    Nil,
+    List(
+        List(
+            Term.Param(
+                Nil,
+                Term.Name("uname"),
+                Some(Type.Name("String")),
+                None
+            ),
+            Term.Param(
+                Nil,
+                Term.Name("pwd"),
+                Some(Type.Name("String")),
+                None
+            )
+        )
+    ),
+    Some(Type.Name("Boolean")),
+    Term.Block(List(Lit.Boolean(true)))
+)

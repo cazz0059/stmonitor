@@ -524,6 +524,20 @@ class STSolver(sessionType : SessionType, path: String){
       // ~~~
       // ~~~
 
+
+
+      // 21/04/2021
+      // IMPROVEMENT OF THIS LOOP - TO DO
+      // - save the label of the event and its corresponding parsed context assertion, the whole set of commands
+      // - instead of parsing the conditions each time, they are only parsed once and then can access the context assertions from the map described above
+      // - the order of the events can be saved through a hashmap or throughout the looping
+      // var eventAssertions : Map[String, ]
+      // not too sure how i am going to execute this
+      // initial thought was to use model like utilFuncs
+      // but there is the confusion of variable decl
+      // its doable, since there r no declarations in the model
+      // im going to test out functions and utilFuncs first, and then do that later, its easier this way coz im not sure the utilFuncs method even works
+
       val currentCond = aggConds.head
       var unsatConds = ""
       println(" - Testing condition itself")
