@@ -33,3 +33,18 @@ type Srv = Offer<
         >,
     >,
 >;
+
+
+-----------------------------------------------------
+
+Defn.Val(
+    Nil,
+    List(Pat.Var(Term.Name("z"))),
+    None,
+    Term.ApplyInfix(
+        Term.Name("x"),
+        Term.Name("+"),
+        Nil,
+        List(Term.Name("y"))
+    )
+)
