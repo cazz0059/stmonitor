@@ -1,0 +1,4 @@
+// add command to sbt +test and run
+// add stuff to install?
+// add command to create xml tree
+// xmlstarlet el -u S_arithmetic_solved_parseTree.xml|awk -F'/' 'BEGIN{print "digraph{"}{print $(NF-1)" -> "$NF}END{print"}"}'|dot -Tpng -o xml4.png
