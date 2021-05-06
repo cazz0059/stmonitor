@@ -139,6 +139,7 @@ class STSolverZ3 {
     //private var smtlibString : String = ""
     private var solver: com.microsoft.z3.Solver = ctx.mkSolver()
     private var global = true
+    private var isFromCond = false
 
 
     def createContext() : Unit = { // funcName : String
@@ -151,7 +152,7 @@ class STSolverZ3 {
     }
     def removeContext() : Unit = { // funcName : String
       solver.pop()
-      utilParams = null // removing all parameters made. the parameters to be used will be created anew. Why? so that recursions do not clash in variables
+      //utilParams = Map() // removing all parameters made. the parameters to be used will be created anew. Why? so that recursions do not clash in variables
       // no this is for moving on to getting the model of the next function, dont need other function model in this function, clear out params
     }
     def getSolver: com.microsoft.z3.Solver = {
@@ -317,28 +318,28 @@ class STSolverZ3 {
 //    }
 
     // these return all possible combinations of a desired type
-    def getBoolExpr(arg : Term, context: Context, funcVars : Variables) : BoolExpr = arg match {
+    def getBoolExpr(arg : Term, funcVars : Variables) : BoolExpr = arg match {
       case Lit.Boolean(value) =>
         // cannot have this constant param name, there may be others in the same function
-        val temp_bool_const = context.mkBoolConst("temp_traverse_bool_const_" + count)
+        val temp_bool_const = ctx.mkBoolConst("temp_traverse_bool_const_" + count)
         incCount()
         var temp_and : BoolExpr = null
 
-        if(!value) temp_and = context.mkAnd(temp_bool_const, context.mkNot(temp_bool_const))
+        if(!value) temp_and = ctx.mkAnd(temp_bool_const, ctx.mkNot(temp_bool_const))
         else temp_and = temp_bool_const // why did i set it to null? because if it is itself it is always sat
 
         temp_and
 
 
       case termName @ Term.Name(name) =>
-        traverseBoolVar(termName, context, funcVars)
+        traverseBoolVar(termName, funcVars)
 
-      case infix @ Term.ApplyInfix(a, b, c, d) => traverseBoolInfix(infix, context, funcVars)
+      case infix @ Term.ApplyInfix(a, b, c, d) => traverseBoolInfix(infix, funcVars)
 
-      case unary @ Term.ApplyUnary(o, a) => traverseBoolUnary(unary, context, funcVars)
+      case unary @ Term.ApplyUnary(o, a) => traverseBoolUnary(unary, funcVars)
 
       case funcCall @ Term.Apply(fun, args) =>
-        traverseFuncBool(funcCall, context, funcVars)
+        traverseFuncBool(funcCall, funcVars)
         //null
 
       case _ =>
@@ -348,26 +349,26 @@ class STSolverZ3 {
 
     // call getArithExpr as well
     // update like the one above
-    def getIntExpr(arg : Term, context: Context, funcVars : Variables) : ArithExpr[_] = arg match {
+    def getIntExpr(arg : Term, funcVars : Variables) : ArithExpr[_] = arg match {
 
       case Lit.Int(value) =>
         // return the value as an IntExpr
         println("Literal : Int")
         pause()
-        val intVal : ArithExpr[_] = context.mkInt(value)
+        val intVal : ArithExpr[_] = ctx.mkInt(value)
         intVal
 
-      case term @ Term.Name(name) => traverseIntVar(term, context, funcVars)
+      case term @ Term.Name(name) => traverseIntVar(term, funcVars)
 
       case term @ Term.ApplyInfix(a, b, c, d) =>
         //val arithExpr : IntExpr = getArithExpr(term, context, funcVars).asInstanceOf
-        val arithExpr = getArithExpr(term, context, funcVars)
+        val arithExpr = getArithExpr(term, funcVars)
         println("Checking as instance of IntExpr from ArithExpr (infix)")
         pause()
         arithExpr
 
       case Term.ApplyUnary(o, a) =>
-        val arithExpr = traverseIntUnary(Term.ApplyUnary(o, a), context, funcVars)
+        val arithExpr = traverseIntUnary(Term.ApplyUnary(o, a), funcVars)
         println("Checking as instance of IntExpr from ArithExpr (unary)")
         pause()
         arithExpr
@@ -377,27 +378,27 @@ class STSolverZ3 {
         null
     }
 
-    def getArithExpr(arg : Term, context: Context, funcVars : Variables) : ArithExpr[_] = arg match {
-      case Term.ApplyInfix(a, b, c, d) => traverseArithInfix(Term.ApplyInfix(a, b, c, d), context, funcVars)
+    def getArithExpr(arg : Term, funcVars : Variables) : ArithExpr[_] = arg match {
+      case Term.ApplyInfix(a, b, c, d) => traverseArithInfix(Term.ApplyInfix(a, b, c, d), funcVars)
       case _ =>
         println("TERM TYPE MISMATCH : ArithExpr")
         null
     }
 
-    def getStringExpr(arg : Term, context: Context, funcVars : Variables) : Expr[SeqSort[BitVecSort]] = arg match {
-      case term @ Term.Name(name) => traverseStringVar(term, context, funcVars)
+    def getStringExpr(arg : Term, funcVars : Variables) : Expr[SeqSort[BitVecSort]] = arg match {
+      case term @ Term.Name(name) => traverseStringVar(term, funcVars)
       case _ =>
         println("TERM TYPE MISMATCH : StringExpr")
         null
     }
 
-    def getExpr(arg : Term, context : Context, funcVars : Variables) : (Expr[_], Int) = {
+    def getExpr(arg : Term, funcVars : Variables) : (Expr[_], Int) = {
       println("Getting expression")
 
-      var expr : Expr[_] = getBoolExpr(arg, context, funcVars)
+      var expr : Expr[_] = getBoolExpr(arg, funcVars)
       var typ = boolean
       if (expr == null) {
-        expr = getIntExpr(arg, context, funcVars)
+        expr = getIntExpr(arg, funcVars)
         typ = integer
       }
 //      if (expr == null) {
@@ -406,7 +407,7 @@ class STSolverZ3 {
 //        typ = integer
 //      }
       if (expr == null) {
-        expr = getStringExpr(arg, context, funcVars)
+        expr = getStringExpr(arg, funcVars)
         typ = string
       }
       if (expr == null) {
@@ -417,19 +418,19 @@ class STSolverZ3 {
       (expr, typ)
     }
 
-    def interpret(name : String, interpretation : Expr[_], context : Context) : BoolExpr = {
+    def interpret(name : String, interpretation : Expr[_]) : BoolExpr = {
       // FIX TO ACCEPT ARITHMETIC ASSERTIONS AS WELL
       if(interpretation == null) {
         println("INTERPRETATION IS NULL")
         return null
       }
       val inter = interpretation.toString
-      val nameConst = context.mkBoolConst(name)
+      val nameConst = ctx.mkBoolConst(name)
       if (inter == "true") {
-        context.mkAnd(nameConst, nameConst)
+        ctx.mkAnd(nameConst, nameConst)
       }
       else if (inter == "false") {
-        context.mkAnd(nameConst, context.mkNot(nameConst))
+        ctx.mkAnd(nameConst, ctx.mkNot(nameConst))
       }
       else {
         println("INTERPRETATION MATCHES NOTHING")
@@ -442,7 +443,7 @@ class STSolverZ3 {
 //    }
 
     // called from traverse func call, which is called by get bool expr
-    def addFuncCall(name : String, args : List[Term], context : Context, funcVars : Variables) : ListBuffer[Expr[_]] = {
+    def addFuncCall(name : String, args : List[Term], funcVars : Variables) : ListBuffer[Expr[_]] = {
       val func = utilFuncs(name) // getting the model of the function
       // creating new scope for function
       // issue when scoping if there are vars in conds and in util func with same name
@@ -464,6 +465,9 @@ class STSolverZ3 {
       for (c <- constDecls)
         println(c.toString)
 
+      println("Params of " + name)
+      println(utilParams(name))
+
       var interList : ListBuffer[Expr[_]] = ListBuffer() // to store list of interpretations (model of each variable)
 
       // check that the lists are the same size, and use a counter to iterate and match param with arg
@@ -472,7 +476,7 @@ class STSolverZ3 {
         while (counter < args.length) {
           val arg = args(counter)
           println("getting arg and param")
-          val (argExpr, typTemp) = getExpr(arg, context, funcVars)
+          val (argExpr, typTemp) = getExpr(arg, funcVars)
           println("got arg " + argExpr.toString)
           val param : Expr[_] = utilParams(name)(utilParams(name).keys.toList(counter)) // getParam()
           println("got param " + param.toString)
@@ -517,7 +521,7 @@ class STSolverZ3 {
 
           // idea - do all utils in ctx, then get interpretation and stuff and save them (all in ctx), then just clear the whole thing, interpretation and model still saved
 
-          val equality : BoolExpr = context.mkEq(argExpr, param)
+          val equality : BoolExpr = ctx.mkEq(argExpr, param)
           println("Parameter setting >> " + equality)
           pause()
 
@@ -547,7 +551,7 @@ class STSolverZ3 {
           val interpretation = func.getConstInterp(paramFunc) // this is an IDE issue
           println("Parameter Interpretation: " + interpretation)
 
-          val inter = interpret(name, interpretation, context)
+          val inter = interpret(name, interpretation)
           interList+=inter
           //        if (inter != null)
           //          solv.add(inter)
@@ -569,14 +573,14 @@ class STSolverZ3 {
         println("Constant Decl: " + constDecl.toString)
         //pause()
         val name = constDecl.getName.toString
-        context.mkBoolConst(name) // find out how to do ints as well
+        ctx.mkBoolConst(name) // find out how to do ints as well
         //val declKind = constDecl.getDeclKind
         //println("Decl Kind: " + declKind)
         //if ()
         val interpretation = func.getConstInterp(constDecl) // this is an IDE issue
         println("Interpretation: " + interpretation)
 
-        val inter = interpret(name, interpretation, context)
+        val inter = interpret(name, interpretation)
         println("after inter method :: " + inter)
         interList+=inter
 //        if (inter != null)
@@ -602,12 +606,12 @@ class STSolverZ3 {
     // use smt-lib List (recursive) some combination of that to unfold a recursive function???
     // or Tree??
     // z3 cannot prove by induction, so unfolding needs to take place to prove by deduction
-    def traverseBoolVar(term : Term.Name, context: Context, funcVars : Variables) : BoolExpr = term match {
+    def traverseBoolVar(term : Term.Name, funcVars : Variables) : BoolExpr = term match {
       // probably is a singular boolean variable, as in any other case it would form part of a formula
       case Term.Name(name) =>
         println("Term bool name " + name + " ##")
-        if(global) {
-          if (variables.vars.keySet.contains(name)) { // .integers
+        if(global || isFromCond) {
+          if (variables.vars.keySet.contains(name) && variables.vars(name).isInstanceOf[BoolExpr]) { // .integers
             println("Keyset : " + variables.vars.keySet)
             variables.vars(name).asInstanceOf[BoolExpr]
           } else { // search also in parameters and in decls within function
@@ -616,7 +620,8 @@ class STSolverZ3 {
           }
         }
         else {
-          if (funcVars.vars.keySet.contains(name)) { // .integers
+          print("Func vars : " + funcVars)
+          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name).isInstanceOf[BoolExpr]) { // .integers
             println("Keyset : " + funcVars.vars.keySet)
             funcVars.vars(name).asInstanceOf[BoolExpr]
           } else {
@@ -641,13 +646,13 @@ class STSolverZ3 {
     // when global (conditions), just save variable param to null
     // add methods for push and pop of function call, and add setting global to true or false
     // wait only change to false when make sure to return in conditions, not when function call over - very important
-    def traverseIntVar(term : Term.Name, context: Context, funcVars : Variables) : IntExpr = term match {
+    def traverseIntVar(term : Term.Name, funcVars : Variables) : IntExpr = term match {
       // probably is a singular boolean variable, as in any other case it would form part of a formula
       case Term.Name(name) =>
         println("Term int name " + name + " ##")
 
-        if(global) {
-          if (variables.vars.keySet.contains(name)) { // .integers
+        if(global || isFromCond) {
+          if (variables.vars.keySet.contains(name) && variables.vars(name).isInstanceOf[IntExpr]) { // .integers
             println("Keyset : " + variables.vars.keySet)
             variables.vars(name).asInstanceOf[IntExpr]
           } else { // search also in parameters and in decls within function
@@ -655,8 +660,8 @@ class STSolverZ3 {
             null
           }
         }
-        else {
-          if (funcVars.vars.keySet.contains(name)) { // .integers
+        else { // only come here is called from util function
+          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name).isInstanceOf[IntExpr]) { // .integers
             println("Keyset : " + funcVars.vars.keySet)
             funcVars.vars(name).asInstanceOf[IntExpr]
           } else {
@@ -675,12 +680,12 @@ class STSolverZ3 {
         null
     }
 
-    def traverseStringVar(term : Term.Name, context: Context, funcVars : Variables) : Expr[SeqSort[BitVecSort]] = term match {
+    def traverseStringVar(term : Term.Name, funcVars : Variables) : Expr[SeqSort[BitVecSort]] = term match {
       // probably is a singular boolean variable, as in any other case it would form part of a formula
       case Term.Name(name) =>
-        if(global) {
+        if(global || isFromCond) {
           println("Term string name " + name + " ##")
-          if (variables.vars.keySet.contains(name)) { // .integers
+          if (variables.vars.keySet.contains(name) && variables.vars(name).isInstanceOf[Expr[SeqSort[BitVecSort]]]) { // .integers
             println("Keyset : " + variables.vars.keySet)
             variables.vars(name).asInstanceOf[Expr[SeqSort[BitVecSort]]]
           } else { // search also in parameters and in decls within function
@@ -689,7 +694,7 @@ class STSolverZ3 {
           }
         }
         else {
-          if (funcVars.vars.keySet.contains(name)) { // .integers
+          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name).isInstanceOf[Expr[SeqSort[BitVecSort]]]) { // .integers
             println("Keyset : " + funcVars.vars.keySet)
             funcVars.vars(name).asInstanceOf[Expr[SeqSort[BitVecSort]]]
           } else {
@@ -702,17 +707,17 @@ class STSolverZ3 {
         null
     }
 
-    def traverseBoolInfix(term : Term.ApplyInfix, context: Context, funcVars : Variables) : BoolExpr = term match {
+    def traverseBoolInfix(term : Term.ApplyInfix, funcVars : Variables) : BoolExpr = term match {
       case Term.ApplyInfix(lhs, Term.Name("&&"), tArgs, args) =>
         println("Term apply infix " + lhs.toString() + " && " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsBool = getBoolExpr(lhs, context, funcVars)
+        var lhsBool = getBoolExpr(lhs, funcVars)
         for (arg <- args) {
-          val rhsBool = getBoolExpr(arg, context, funcVars)
+          val rhsBool = getBoolExpr(arg, funcVars)
           if (rhsBool != null)
-            lhsBool = context.mkAnd(lhsBool, rhsBool)
+            lhsBool = ctx.mkAnd(lhsBool, rhsBool)
         }
         lhsBool
 
@@ -721,11 +726,11 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsBool = getBoolExpr(lhs, context, funcVars)
+        var lhsBool = getBoolExpr(lhs, funcVars)
         for (arg <- args) {
-          val rhsBool = getBoolExpr(arg, context, funcVars)
+          val rhsBool = getBoolExpr(arg, funcVars)
           if (rhsBool != null)
-            lhsBool = context.mkOr(lhsBool, rhsBool)
+            lhsBool = ctx.mkOr(lhsBool, rhsBool)
         }
         lhsBool
 
@@ -734,10 +739,10 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        val lhsInt = getIntExpr(lhs, context, funcVars)
-        val rhsInt = getIntExpr(args.head, context, funcVars)
+        val lhsInt = getIntExpr(lhs, funcVars)
+        val rhsInt = getIntExpr(args.head, funcVars)
         println("Checking lhs: " + lhsInt + " and rhs: " + rhsInt)
-        val lt = context.mkLt(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
+        val lt = ctx.mkLt(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
         println("Testing as instance of: " + lt)
         //pause()
         lt
@@ -747,10 +752,10 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        val lhsInt = getIntExpr(lhs, context, funcVars)
-        val rhsInt = getIntExpr(args.head, context, funcVars)
+        val lhsInt = getIntExpr(lhs, funcVars)
+        val rhsInt = getIntExpr(args.head, funcVars)
         println("Applying operator > ...")
-        val gt = context.mkGt(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
+        val gt = ctx.mkGt(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
         println("Testing as instance of: " + gt)
         //pause()
         gt
@@ -760,9 +765,9 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        val lhsInt = getIntExpr(lhs, context, funcVars)
-        val rhsInt = getIntExpr(args.head, context, funcVars)
-        val lte = context.mkLe(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
+        val lhsInt = getIntExpr(lhs, funcVars)
+        val rhsInt = getIntExpr(args.head, funcVars)
+        val lte = ctx.mkLe(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
         println("Testing as instance of: " + lte)
         //pause()
         lte
@@ -772,9 +777,9 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        val lhsInt = getIntExpr(lhs, context, funcVars)
-        val rhsInt = getIntExpr(args.head, context, funcVars)
-        val gte = context.mkGe(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
+        val lhsInt = getIntExpr(lhs, funcVars)
+        val rhsInt = getIntExpr(args.head, funcVars)
+        val gte = ctx.mkGe(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
         println("Testing as instance of: " + gte)
         //pause()
         gte
@@ -784,16 +789,16 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhs : Expr[_] = getIntExpr(arg, context, funcVars)
+        var lhs : Expr[_] = getIntExpr(arg, funcVars)
         var rhs : Expr[_] = null
         if(lhs != null) {
-          rhs = getIntExpr(args.head, context, funcVars)
+          rhs = getIntExpr(args.head, funcVars)
         }
         else {
-          lhs = getBoolExpr(args.head, context, funcVars)
-          rhs = getBoolExpr(args.head, context, funcVars)
+          lhs = getBoolExpr(args.head, funcVars)
+          rhs = getBoolExpr(args.head, funcVars)
         }
-        val gte = context.mkEq(lhs, rhs)
+        val gte = ctx.mkEq(lhs, rhs)
         println("Testing as instance of: " + gte)
         //pause()
         gte
@@ -802,20 +807,20 @@ class STSolverZ3 {
         null
     }
 
-    def traverseArithInfix(term : Term.ApplyInfix, context: Context, funcVars : Variables) : ArithExpr[_] = term match {
+    def traverseArithInfix(term : Term.ApplyInfix, funcVars : Variables) : ArithExpr[_] = term match {
       case Term.ApplyInfix(lhs, Term.Name("+"), tArgs, args) =>
         // has to be recursive over the term names
         println("Term apply infix " + lhs.toString() + " + " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsInt : ArithExpr[_] = context.mkAdd(getIntExpr(lhs, context, funcVars)) // ctx.mkIntConst("0")
+        var lhsInt : ArithExpr[_] = ctx.mkAdd(getIntExpr(lhs, funcVars)) // ctx.mkIntConst("0")
         for (arg <- args){
           println("Arg : "  + arg)
           // checking if there is a function call (that returns a boolean)
-          val rhsInt = getIntExpr(arg, context, funcVars)
+          val rhsInt = getIntExpr(arg, funcVars)
           if (rhsInt != null)
-            lhsInt = context.mkAdd(lhsInt, rhsInt)
+            lhsInt = ctx.mkAdd(lhsInt, rhsInt)
         }
         println("Infix applied")
         lhsInt
@@ -825,11 +830,11 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsInt : ArithExpr[_] = context.mkAdd(getIntExpr(lhs, context, funcVars))
+        var lhsInt : ArithExpr[_] = ctx.mkAdd(getIntExpr(lhs, funcVars))
         for (arg <- args) {
-          val rhsInt = getIntExpr(arg, context, funcVars)
+          val rhsInt = getIntExpr(arg, funcVars)
           if (rhsInt != null)
-            lhsInt = context.mkSub(lhsInt, rhsInt)
+            lhsInt = ctx.mkSub(lhsInt, rhsInt)
         }
         lhsInt
 
@@ -838,11 +843,11 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsInt : ArithExpr[_] = context.mkAdd(getIntExpr(lhs, context, funcVars))
+        var lhsInt : ArithExpr[_] = ctx.mkAdd(getIntExpr(lhs, funcVars))
         for (arg <- args) {
-          val rhsInt = getIntExpr(arg, context, funcVars)
+          val rhsInt = getIntExpr(arg, funcVars)
           if (rhsInt != null)
-            lhsInt = context.mkMul(lhsInt, rhsInt)
+            lhsInt = ctx.mkMul(lhsInt, rhsInt)
         }
         lhsInt
 
@@ -851,11 +856,11 @@ class STSolverZ3 {
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
-        var lhsInt : ArithExpr[_] = context.mkAdd(getIntExpr(lhs, context, funcVars))
+        var lhsInt : ArithExpr[_] = ctx.mkAdd(getIntExpr(lhs, funcVars))
         for (arg <- args) {
-          val rhsInt = getIntExpr(arg, context, funcVars)
+          val rhsInt = getIntExpr(arg, funcVars)
           if (rhsInt != null)
-            lhsInt = context.mkDiv(lhsInt, rhsInt)
+            lhsInt = ctx.mkDiv(lhsInt, rhsInt)
         }
         lhsInt
 
@@ -863,36 +868,36 @@ class STSolverZ3 {
         null
     }
 
-    def traverseBoolUnary(term : Term.ApplyUnary, context: Context, funcVars : Variables) : BoolExpr = term match {
+    def traverseBoolUnary(term : Term.ApplyUnary, funcVars : Variables) : BoolExpr = term match {
       case Term.ApplyUnary(null, arg) =>
-        getBoolExpr(arg, context, funcVars)
+        getBoolExpr(arg, funcVars)
       case Term.ApplyUnary(op, arg) =>
-        context.mkNot(getBoolExpr(arg, context, funcVars))
+        ctx.mkNot(getBoolExpr(arg, funcVars))
       case _ =>
         null
     }
 
-    def traverseIntUnary(term : Term.ApplyUnary, context: Context, funcVars : Variables) : ArithExpr[_] = term match {
+    def traverseIntUnary(term : Term.ApplyUnary, funcVars : Variables) : ArithExpr[_] = term match {
       case Term.ApplyUnary(null, arg) =>
-        getIntExpr(arg, context, funcVars)
+        getIntExpr(arg, funcVars)
       case Term.ApplyUnary(op, arg) =>
         println("Term unary " + arg)
-        context.mkSub(null, getIntExpr(arg, context, funcVars)) // ctx.mkBVNeg(ctx.mkInt2BV(getIntExpr(arg)))
+        ctx.mkSub(null, getIntExpr(arg, funcVars)) // ctx.mkBVNeg(ctx.mkInt2BV(getIntExpr(arg)))
       case _ =>
         null
     }
 
     ///--------------------------------
-    def aggregateInter(interList : ListBuffer[Expr[_]], context : Context) : BoolExpr = {
+    def aggregateInter(interList : ListBuffer[Expr[_]]) : BoolExpr = {
       if(interList.tail.nonEmpty)
-        context.mkAnd(interList.head.asInstanceOf[Expr[BoolSort]], aggregateInter(interList.tail, context))
+        ctx.mkAnd(interList.head.asInstanceOf[Expr[BoolSort]], aggregateInter(interList.tail))
       else
         interList.head.asInstanceOf[BoolExpr]
     }
 
     // called only from conditions, not util file
     // gets list of all interpretations in the function call as a big AND of assertions in BoolExpr format, called from getBoolExpr to be used anywhere
-    def traverseFuncBool(app : Term.Apply, context : Context, funcVars : Variables) : BoolExpr = app match { // does the adding itself
+    def traverseFuncBool(app : Term.Apply, funcVars : Variables) : BoolExpr = app match { // does the adding itself
       case Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) =>
         // this is function call within util function
         println("Getting bool function call")
@@ -901,11 +906,12 @@ class STSolverZ3 {
         //if (utilFuncs(name) != null) {
         if (utilFuncs.keySet.contains(name)) {
           global = false
-          val interList = addFuncCall(name, args, context, funcVars)//, solver)
+          isFromCond = true
+          val interList = addFuncCall(name, args, funcVars)//, solver)
           global = true
           println("List of interpretations :::")
           println(interList)
-          interAgg = aggregateInter(interList, context)
+          interAgg = aggregateInter(interList)
           println("InterAgg :::")
           println(interAgg)
         }
@@ -921,10 +927,133 @@ class STSolverZ3 {
     }
     ///-----------------------------------
 
-    // REMOVE ALL CONTEXTS WE DONT NEED THEM ANYMORE
+    def traverseStat(stat : Stat, fVars : Variables) : Unit = {
+      var funcVars = fVars
+      stat match{
+        case bool @ Lit.Boolean(value) =>
+          // add assert statement
+          solver.add(getBoolExpr(bool, null)) // utilSolver(name) // funcVars is null wont make a difference because its just a boolean literal
+        case Defn.Val(mods, List(Pat.Var(Term.Name(name))), decltpe, rhs) =>
+          println("Getting val")
+          val (getRHS, typTemp)  = getExpr(rhs, funcVars)
+          //val getRHS : Sort = getRHSTemp.getSort.asInstanceOf[Sort] // : Sort
+          println("Val Expression : " + getRHS)
+          // fix this
+          // wait adding things to context doesnt change stuff
+          // like adding multiple adds and not to the same expression
+          // now just add the assert equals
+          // z3 cannot assign no
+
+          // the assertions of the rhs are already being asserted with the context, maybe this should be changed so its just an assignment rather than an assertion
+          //context.mkConst(name, getRHS)
+          funcVars = addFuncVars(funcVars, typTemp, name) // adding the variable to the list (not the rhs, just the name and a const with it)
+          ctx.mkEq(getFuncVars(funcVars, name, typTemp), getRHS) // "assigning" the rhs to the created (above) constant
+          pause()
+        case Defn.Var(mods, List(Pat.Var(Term.Name(name))), decltpe, rhs) =>
+          val (getRHS, typTemp)  = getExpr(rhs.get, funcVars)
+          //val getRHS : Sort = getRHSTemp.getSort.asInstanceOf[Sort] // : Sort
+          println("Var Expression : " + getRHS)
+          //context.mkConst(name, getRHS)
+          funcVars = addFuncVars(funcVars, typTemp, name)
+          ctx.mkEq(getFuncVars(funcVars, name, typTemp), getRHS)
+          pause()
+        case infix @ Term.ApplyInfix(lhs, op, targs, args) =>
+          solver.add(getBoolExpr(infix, funcVars))
+          pause()
+        case Term.While(expr, body) =>
+          println("Body ###")
+          println(body.toString())
+          // must unroll, no blocks and pushes and pops
+          // must change all the decls (as per example)
+          var count = 0
+        //{
+          var funcVarsTemp: Variables = new Variables()
+          for (funcVar <- funcVars.vars) { // new set of variables
+            val funcVarNameTemp = funcVar._1 + "_" + count
+            val funcVarValTemp = funcVar._2
+            funcVarsTemp.vars = funcVarsTemp.vars + (funcVarNameTemp -> funcVarValTemp)
+            count = count + 1
+          }
+          var loopCond = getBoolExpr(expr, funcVars)
+          body match {
+            case Term.Block(stats) =>
+              var block : ListBuffer[Expr[_]] = ListBuffer()
+              for(bodyStat <- stats) {
+                block = block + traverseStat(bodyStat, funcVarsTemp)
+              }
+          }
+          // NEXT STEP
+          // parse stats as normal (fix error above)
+          // when assignment make sure to refer to previous variables (funcvars_n-1) in rhs, and lhs is new funcvars_n
+          // dats the only thing i need to consider differently in the stats parsing, everything else remains unchagnged?
+          // wait no after assignemnt, change the default funcvar used from _n-1 to _n so that the updated assignment is use dby default
+
+          var bodyExpr = getExpr(body, funcVars)
+          ctx.mkImplies(loopCond, bodyExpr._1.asInstanceOf[Expr[BoolSort]])
+//            var block : ListBuffer[Expr[_]] = ListBuffer()
+//            for(bodyStat <- body) {
+//              block = block ++ traverseStat(bodyStat, )
+//            }
+        //}
+        // get the terms used in the condition
+        // declare them with "_n" each time
+        // check if sat first (do loop if sat)
+        // do the loop on the new values each time
+        // do block
+        // assert condition with true
+        // solve at this state? skip next loop when unsat
+        case Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) => // only called by util
+          // this is function call within util function
+          // adds all interpretations as a list of assertions in the solver of the function
+          if (utilFuncs(name) != null) {
+            // new scope to store new assertions
+            solver.push() // utilSolver(name)
+            isFromCond = false
+            val interList = addFuncCall(name, args, funcVars)//, utilSolver(name))
+            println("List of interpretations :::")
+            println(interList)
+            for (inter <- interList) {
+              if (inter != null)
+                solver.add(inter.asInstanceOf[Expr[BoolSort]])
+            } // ------- this instance of may cause some issues but shouldnt really // utilSolver(name)
+            solver.pop() // utilSolver(name)
+          }
+        case _  =>
+          println("Statement does not exist")
+          pause()
+
+      }
+    }
+
+//    def getTermNames(expr : Term) : List[String] = {
+//      // convert to string
+//      // find the first Term.Name
+//      // remove anything before, and the Term.Name( too
+//      // get whatever is in bracket
+//      // if it is not in the list, save it
+//      // if not skip
+//      // remove bracket and repeat process
+//      var stringExpr = expr.toString()
+//      print(stringExpr)
+//      while (stringExpr.nonEmpty) {
+//        if(stringExpr(0) == 'T'){
+//          val termDotName = stringExpr.substring(0, Math.min(stringExpr.length, 10))
+//          if (termDotName == "Term.Name("){
+//
+//          }
+//          else {
+//            stringExpr.drop(Math.min(stringExpr.length, 10))
+//          }
+//        }
+//        else {
+//          stringExpr.drop(0)
+//        }
+//      }
+//
+//    }
 
     // function contents
-    def traverseBlock(funcName : String, params : List[Term.Param], stats : List[Stat], context: Context) : Unit = {
+    def traverseBlock(funcName : String, params : List[Term.Param], stats : List[Stat]) : Unit = {
       //var paramsExpr : ListBuffer[Expr[_]] = ListBuffer()
       // these will be irrelevent in the future when the function is being called
       // they will be rebuilt. these variables are only temporary until the model is retrieved
@@ -968,57 +1097,7 @@ class STSolverZ3 {
 
       for (stat <- stats) {
         println("Current statement ... " + stat.toString())
-        stat match { // there will be a lot here
-          case bool @ Lit.Boolean(value) =>
-            // add assert statement
-            solver.add(getBoolExpr(bool, context, null)) // utilSolver(name)
-          case Defn.Val(mods, List(Pat.Var(Term.Name(name))), decltpe, rhs) =>
-            println("Getting val")
-            val (getRHS, typTemp)  = getExpr(rhs, context, funcVars)
-            //val getRHS : Sort = getRHSTemp.getSort.asInstanceOf[Sort] // : Sort
-            println("Val Expression : " + getRHS)
-             // fix this
-            // wait adding things to context doesnt change stuff
-            // like adding multiple adds and not to the same expression
-            // now just add the assert equals
-            // z3 cannot assign no
-
-            // the assertions of the rhs are already being asserted with the context, maybe this should be changed so its just an assignment rather than an assertion
-            //context.mkConst(name, getRHS)
-            funcVars = addFuncVars(funcVars, typTemp, name) // adding the variable to the list (not the rhs, just the name and a const with it)
-            context.mkEq(getFuncVars(funcVars, name, typTemp), getRHS) // "assigning" the rhs to the created (above) constant
-            pause()
-          case Defn.Var(mods, List(Pat.Var(Term.Name(name))), decltpe, rhs) =>
-            val (getRHS, typTemp)  = getExpr(rhs.get, context, funcVars)
-            //val getRHS : Sort = getRHSTemp.getSort.asInstanceOf[Sort] // : Sort
-            println("Var Expression : " + getRHS)
-            //context.mkConst(name, getRHS)
-            funcVars = addFuncVars(funcVars, typTemp, name)
-            context.mkEq(getFuncVars(funcVars, name, typTemp), getRHS)
-            pause()
-          case infix @ Term.ApplyInfix(lhs, op, targs, args) =>
-            solver.add(getBoolExpr(infix, context, funcVars))
-            pause()
-          case Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) => // only called by util
-            // this is function call within util function
-            // adds all interpretations as a list of assertions in the solver of the function
-            if (utilFuncs(name) != null) {
-              // new scope to store new assertions
-              solver.push() // utilSolver(name)
-              val interList = addFuncCall(name, args, context, funcVars)//, utilSolver(name))
-              println("List of interpretations :::")
-              println(interList)
-              for (inter <- interList) {
-                if (inter != null)
-                  solver.add(inter.asInstanceOf[Expr[BoolSort]])
-              } // ------- this instance of may cause some issues but shouldnt really // utilSolver(name)
-              solver.pop() // utilSolver(name)
-            }
-          case _  =>
-            println("Statement does not exist")
-            pause()
-
-        }
+        traverseStat(stat, funcVars)
       }
     }
 
@@ -1031,7 +1110,7 @@ class STSolverZ3 {
           case Defn.Def(a, Term.Name(name), b, List(params), typ, Term.Block(stats)) => // handle params by saving them as variables
             createContext() // add context for function
             //createUtilSolver(name)
-            traverseBlock(name, params, stats, ctx) // traverse function and add assertions
+            traverseBlock(name, params, stats) // traverse function and add assertions
 
             // checking sat and getting model
             if(solver.check == Status.SATISFIABLE) { // solv._2
@@ -1102,7 +1181,7 @@ class STSolverZ3 {
 
     def traverse(conditionTree : Term):Unit={
       global = true
-      solver.add(getBoolExpr(conditionTree, ctx, null))
+      solver.add(getBoolExpr(conditionTree, null))
     } // call to traverse normal
   }
 

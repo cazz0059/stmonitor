@@ -8,7 +8,7 @@ S_arithmetic =&{
         !Invalid2()[x == 0]
    },
    ?Divide(x : Int, y : Int)[y > 0].+{
-        !Answer3(z : Int)[(y != 0) && (z == util.divide(x, y))],
+        !Answer3(z : Int)[(y != 0) && (util.divide(x, y, z))],
         !Invalid3()[y < 0]
     }
 }
