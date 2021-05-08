@@ -46,9 +46,9 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML = textXML ++ "</types>"
 
         if (condition != null) { // condition.terms.nonEmpty
-          textXML = textXML ++ "<conditions>"
-          textXML = textXML ++ conditionPT(condition) // expressionPT(condition)
-          textXML = textXML ++ "</conditions>"
+          textXML = textXML ++ "<conditions "
+          textXML = textXML ++ "assertions=\"" ++ conditionPT(condition) ++ "\"/>" // expressionPT(condition)
+          //textXML = textXML ++ "/>"
         }
 
         if (continuation != null) {
@@ -68,9 +68,9 @@ class STParseTree(sessionType: SessionType, name: String) {
         textXML = textXML ++ "</types>"
 
         if(condition != null) {
-          textXML = textXML ++ "<conditions>"
-          textXML = textXML ++ conditionPT(condition) // expressionPT(condition)
-          textXML = textXML ++ "</conditions>"
+          textXML = textXML ++ "<conditions "
+          textXML = textXML ++ "assertions=\"" ++ conditionPT(condition) ++ "\"/>" // expressionPT(condition)
+          //textXML = textXML ++ "/>"
         }
 
         if (continuation != null) {
@@ -150,6 +150,8 @@ class STParseTree(sessionType: SessionType, name: String) {
     condition_temp = condition_temp.replace("&", "&amp;")
     condition_temp = condition_temp.replace("<", "&lt;")
     condition_temp = condition_temp.replace(">", "&gt;")
+    condition_temp = condition_temp.replace("|", "&#124;")
+    condition_temp = condition_temp.replace("=", "&#61;")
     condition_temp
     //conditions
   }

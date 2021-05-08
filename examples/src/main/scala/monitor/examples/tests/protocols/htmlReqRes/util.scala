@@ -1,11 +1,14 @@
-package monitor.examples.tests.protocols.htmlReqRes
+//package monitor.examples.tests.protocols.htmlReqRes
 
 object util {
   def checkString(s : String) : Boolean = {
-    var s_temp = s
-    while (s_temp.trim().nonEmpty){
-      s_temp = s_temp.dropRight(1)
+    var s_array : Array[Int] = Array(2, 4, 6, 8, 10)
+    s_array = s_array ++ Array(s.length)
+    var check = false
+    for (id <- s_array){
+      if(id == s.length)
+        check = true
     }
-    s_temp.trim().isEmpty
+    check
   }
 }

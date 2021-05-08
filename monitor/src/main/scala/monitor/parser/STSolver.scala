@@ -76,6 +76,8 @@ class STSolver(sessionType : SessionType, path: String){
 
     solvedST.name = sessionType.name
     solvedST.statement = walk(sessionType.statement)
+    if(solvedST.statement == null)
+      solvedST.statement = End()
     solvedST//sessionType
   }
 

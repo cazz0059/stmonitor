@@ -20,3 +20,15 @@ protocol RequestResponse(role Client as cl, role Server as sr) {
         }
     }
 }
+
+testing for optimisation get interpretation as all true, but did not implment this
+(this function always returns a true)
+the point is not to test for tautology so shouldnt have a result that returns so
+
+def checkString(s : String) : Boolean = {
+    var s_temp = s
+    while (s_temp.trim().nonEmpty){
+      s_temp = s_temp.dropRight(1)
+    }
+    s_temp.trim().isEmpty
+  }

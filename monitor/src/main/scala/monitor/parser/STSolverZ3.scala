@@ -32,7 +32,7 @@ class STSolverZ3 {
   val string = 2
 
   class Variables {
-    var vars : Map[String, Expr[_]] = Map()
+    var vars : Map[String, (Expr[_], Int)] = Map()
 //    var integers : Map[String, IntExpr] = Map()
 //    var booleans : Map[String, BoolExpr] = Map()
 //    var strings : Map[String, Expr[SeqSort[BitVecSort]]] = Map()
@@ -45,37 +45,37 @@ class STSolverZ3 {
 //  private var variablesString : Map[String, Expr[SeqSort[BitVecSort]]] = Map()
   private var variables : Variables = new Variables()
 
-  private var utilParams : Map[String, SortedMap[String, Expr[_]]] = Map() // Map[String, Variables]
+  private var utilParams : Map[String, SortedMap[String, (Expr[_], Int)]] = Map() // Map[String, Variables]
   private var utilFuncs : Map[String, Model] = Map()
   //private var utilCtx : Map[String, Context] = Map()
 
   def addVars(typ : Int, variable : String) : Unit = {
     if(typ == integer) {
-      variables.vars = variables.vars + (variable -> ctx.mkIntConst(variable))
+      variables.vars = variables.vars + (variable -> (ctx.mkIntConst(variable), integer))
     }
     else if(typ == boolean) {
-      variables.vars = variables.vars + (variable -> ctx.mkBoolConst(variable))
+      variables.vars = variables.vars + (variable -> (ctx.mkBoolConst(variable), boolean))
     }
     else if(typ == string) {
-      variables.vars = variables.vars + (variable -> ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()))
+      variables.vars = variables.vars + (variable -> (ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()), string))
     }
   }
 
   def addParams(name : String, typ : Int, variable : String) : Unit = {
     if(typ == integer) {
       println("Adding " + variable + " integer")
-      val newParam : SortedMap[String, Expr[_]] = SortedMap((variable -> ctx.mkIntConst(variable)))
-      val newParams : SortedMap[String, Expr[_]] = utilParams(name) ++ newParam
+      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap((variable -> (ctx.mkIntConst(variable), typ)))
+      val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
       utilParams = utilParams + (name -> newParams)// .integers = utilParams(name).integers + (variable -> ctx.mkIntConst(variable))
     }
     else if(typ == boolean) {
-      val newParam : SortedMap[String, Expr[_]] = SortedMap((variable -> ctx.mkBoolConst(variable)))
-      val newParams : SortedMap[String, Expr[_]] = utilParams(name) ++ newParam
+      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap((variable -> (ctx.mkBoolConst(variable), typ)))
+      val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
       utilParams = utilParams + (name -> newParams)
     }
     else if(typ == string) {
-      val newParam : SortedMap[String, Expr[_]] = SortedMap((variable -> ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort())))
-      val newParams : SortedMap[String, Expr[_]] = utilParams(name) ++ newParam
+      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap((variable -> (ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()), typ)))
+      val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
       //utilParams = utilParams + (utilParams(name) ++ (variable -> ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort())))
       utilParams = utilParams + (name -> newParams)
     }
@@ -83,13 +83,13 @@ class STSolverZ3 {
 
   def addFuncVars(funcVars : Variables, typ : Int, variable : String) : Variables = {
     if(typ == integer) {
-      funcVars.vars = funcVars.vars + (variable -> ctx.mkIntConst(variable))
+      funcVars.vars = funcVars.vars + (variable -> (ctx.mkIntConst(variable), integer))
     }
     else if(typ == boolean) {
-      funcVars.vars = funcVars.vars + (variable -> ctx.mkBoolConst(variable))
+      funcVars.vars = funcVars.vars + (variable -> (ctx.mkBoolConst(variable), boolean))
     }
     else if(typ == string) {
-      funcVars.vars = funcVars.vars + (variable -> ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()))
+      funcVars.vars = funcVars.vars + (variable -> (ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()), string))
     }
     funcVars
   }
@@ -188,7 +188,7 @@ class STSolverZ3 {
     }
 
     def getVars(name : String, typ : Int) : Expr[_] = {
-      variables.vars(name)
+      variables.vars(name)._1
 //      if (typ == integer) {
 //        variables.integers(name)
 //      }
@@ -216,7 +216,7 @@ class STSolverZ3 {
 //    }
 
     def getFuncVars(funcVars : Variables, name : String, typ : Int) : Expr[_] = {
-      funcVars.vars(name)
+      funcVars.vars(name)._1
 //      if (typ == integer) {
 //        funcVars.integers(name)
 //      }
@@ -478,7 +478,7 @@ class STSolverZ3 {
           println("getting arg and param")
           val (argExpr, typTemp) = getExpr(arg, funcVars)
           println("got arg " + argExpr.toString)
-          val param : Expr[_] = utilParams(name)(utilParams(name).keys.toList(counter)) // getParam()
+          val param : Expr[_] = utilParams(name)(utilParams(name).keys.toList(counter))._1 // getParam()
           println("got param " + param.toString)
 
           // params needs to be created when util parsed
@@ -611,7 +611,7 @@ class STSolverZ3 {
       case Term.Name(name) =>
         println("Term bool name " + name + " ##")
         if(global || isFromCond) {
-          if (variables.vars.keySet.contains(name) && variables.vars(name).isInstanceOf[BoolExpr]) { // .integers
+          if (variables.vars.keySet.contains(name) && variables.vars(name)._2 == boolean) { // .integers // isInstanceOf[BoolExpr]
             println("Keyset : " + variables.vars.keySet)
             variables.vars(name).asInstanceOf[BoolExpr]
           } else { // search also in parameters and in decls within function
@@ -621,7 +621,7 @@ class STSolverZ3 {
         }
         else {
           print("Func vars : " + funcVars)
-          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name).isInstanceOf[BoolExpr]) { // .integers
+          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name)._2 == boolean) { // .integers
             println("Keyset : " + funcVars.vars.keySet)
             funcVars.vars(name).asInstanceOf[BoolExpr]
           } else {
@@ -652,7 +652,7 @@ class STSolverZ3 {
         println("Term int name " + name + " ##")
 
         if(global || isFromCond) {
-          if (variables.vars.keySet.contains(name) && variables.vars(name).isInstanceOf[IntExpr]) { // .integers
+          if (variables.vars.keySet.contains(name) && variables.vars(name)._2 == integer) { // .integers
             println("Keyset : " + variables.vars.keySet)
             variables.vars(name).asInstanceOf[IntExpr]
           } else { // search also in parameters and in decls within function
@@ -661,7 +661,7 @@ class STSolverZ3 {
           }
         }
         else { // only come here is called from util function
-          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name).isInstanceOf[IntExpr]) { // .integers
+          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name)._2 == integer) { // .integers
             println("Keyset : " + funcVars.vars.keySet)
             funcVars.vars(name).asInstanceOf[IntExpr]
           } else {
@@ -685,7 +685,7 @@ class STSolverZ3 {
       case Term.Name(name) =>
         if(global || isFromCond) {
           println("Term string name " + name + " ##")
-          if (variables.vars.keySet.contains(name) && variables.vars(name).isInstanceOf[Expr[SeqSort[BitVecSort]]]) { // .integers
+          if (variables.vars.keySet.contains(name) && variables.vars(name)._2 == string) { // .integers
             println("Keyset : " + variables.vars.keySet)
             variables.vars(name).asInstanceOf[Expr[SeqSort[BitVecSort]]]
           } else { // search also in parameters and in decls within function
@@ -694,7 +694,7 @@ class STSolverZ3 {
           }
         }
         else {
-          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name).isInstanceOf[Expr[SeqSort[BitVecSort]]]) { // .integers
+          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name)._2 == string) { // .integers
             println("Keyset : " + funcVars.vars.keySet)
             funcVars.vars(name).asInstanceOf[Expr[SeqSort[BitVecSort]]]
           } else {
@@ -957,6 +957,18 @@ class STSolverZ3 {
           funcVars = addFuncVars(funcVars, typTemp, name)
           ctx.mkEq(getFuncVars(funcVars, name, typTemp), getRHS)
           pause()
+        case Term.Assign(Term.Name(lhsName), rhs) =>
+          // only func vars can be changed
+          // just change the name of the fuc vars
+          // give them numbers for every assignment
+          //var lhsExpr = getExpr(lhs, funcVars)
+          val lhsExpr = funcVars.vars(lhsName)
+          addFuncVars(funcVars, lhsExpr._2, lhsName + "_" + count); incCount()
+          val rhsExpr = getExpr(rhs, funcVars)._1
+          // assert equals
+          ctx.mkEq(lhsExpr._1, rhsExpr)
+          // change name
+
         case infix @ Term.ApplyInfix(lhs, op, targs, args) =>
           solver.add(getBoolExpr(infix, funcVars))
           pause()
@@ -979,7 +991,7 @@ class STSolverZ3 {
             case Term.Block(stats) =>
               var block : ListBuffer[Expr[_]] = ListBuffer()
               for(bodyStat <- stats) {
-                block = block + traverseStat(bodyStat, funcVarsTemp)
+                //block = block + traverseStat(bodyStat, funcVarsTemp)
               }
           }
           // NEXT STEP
@@ -987,6 +999,20 @@ class STSolverZ3 {
           // when assignment make sure to refer to previous variables (funcvars_n-1) in rhs, and lhs is new funcvars_n
           // dats the only thing i need to consider differently in the stats parsing, everything else remains unchagnged?
           // wait no after assignemnt, change the default funcvar used from _n-1 to _n so that the updated assignment is use dby default
+
+          // should i only do it for simple loops only?
+
+          // not condition and things after loop
+          // but if before contradicts condition, it should not return unsat
+          // if prev and condition unsat, simply skip whole block and condition
+          // if they are fine, just copmare the not of the condition with anything after
+          // the loop is guaranteed to end, and anything in the loop will not affect anything outside (in the case of simple loops)
+          // simple loops = only variables present in the condition will be affected in the body
+
+          // FOR LOOP
+          // just do same stuff as function and repeat it
+          // the no of repetitions is known already so the no of reps is known
+          // do it like function
 
           var bodyExpr = getExpr(body, funcVars)
           ctx.mkImplies(loopCond, bodyExpr._1.asInstanceOf[Expr[BoolSort]])
@@ -1002,6 +1028,11 @@ class STSolverZ3 {
         // do block
         // assert condition with true
         // solve at this state? skip next loop when unsat
+        case Term.For(enums, body) =>
+          println(enums)
+          for(enum <- enums) {
+            println(enum)
+          }
         case Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) => // only called by util
           // this is function call within util function
           // adds all interpretations as a list of assertions in the solver of the function
@@ -1059,7 +1090,7 @@ class STSolverZ3 {
       // they will be rebuilt. these variables are only temporary until the model is retrieved
       println("Traversing block ...")
       // ADD FUNCTION TO UTIL PARAMS
-      val newFunc : SortedMap[String, Expr[_]] = SortedMap()
+      val newFunc : SortedMap[String, (Expr[_], Int)] = SortedMap()
       utilParams = utilParams + (funcName -> newFunc)
       for (param <- params) {
         println("Current param ... " + param.toString())

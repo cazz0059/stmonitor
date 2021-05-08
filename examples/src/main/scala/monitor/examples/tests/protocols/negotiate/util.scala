@@ -1,4 +1,4 @@
-//package monitor.examples.tests.protocols.negotiate
+package monitor.examples.tests.protocols.negotiate
 
 object util {
   def validate(x : Int, check : Boolean): Boolean ={
@@ -6,6 +6,6 @@ object util {
     while (i < 5){
       i = i + 1
     }
-    (i == 6) && check
+    (i == 4) && check
   }
 }
