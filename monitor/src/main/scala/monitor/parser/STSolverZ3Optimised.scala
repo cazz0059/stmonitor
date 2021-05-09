@@ -18,11 +18,11 @@ import scala.meta._
 
 //import z3
 
-class STSolverZ3 {
+class STSolverZ3Optimised {
 
-  //  private lazy val z3_path = {
-  //    sys.env.getOrElse("Z3_EXE", "z3.exe")
-  //  }
+//  private lazy val z3_path = {
+//    sys.env.getOrElse("Z3_EXE", "z3.exe")
+//  }
 
   //private val toolbox = currentMirror.mkToolBox()
 
@@ -33,21 +33,20 @@ class STSolverZ3 {
 
   class Variables {
     var vars : Map[String, (Expr[_], Int)] = Map()
-    //    var integers : Map[String, IntExpr] = Map()
-    //    var booleans : Map[String, BoolExpr] = Map()
-    //    var strings : Map[String, Expr[SeqSort[BitVecSort]]] = Map()
+//    var integers : Map[String, IntExpr] = Map()
+//    var booleans : Map[String, BoolExpr] = Map()
+//    var strings : Map[String, Expr[SeqSort[BitVecSort]]] = Map()
   }
 
 
   //private var smtlibVariables = ""
-  //  private var variablesInt : Map[String, IntExpr] = Map()
-  //  private var variablesBool : Map[String, BoolExpr] = Map()
-  //  private var variablesString : Map[String, Expr[SeqSort[BitVecSort]]] = Map()
+//  private var variablesInt : Map[String, IntExpr] = Map()
+//  private var variablesBool : Map[String, BoolExpr] = Map()
+//  private var variablesString : Map[String, Expr[SeqSort[BitVecSort]]] = Map()
   private var variables : Variables = new Variables()
 
-  //private var utilParams : Map[String, SortedMap[String, (Expr[_], Int)]] = Map() // Map[String, Variables]
-  //private var utilParams : SortedMap[String, (Expr[_], Int)] = SortedMap() // Map[String, Variables]
-  private var utilFuncs : Map[String, (List[Term.Param], List[Stat])] = Map() // params, stats in block // Defn.Def(a, Term.Name(name), b, List(params), typ, Term.Block(stats))
+  private var utilParams : Map[String, SortedMap[String, (Expr[_], Int)]] = Map() // Map[String, Variables]
+  private var utilFuncs : Map[String, Model] = Map()
   //private var utilCtx : Map[String, Context] = Map()
 
   def addVars(typ : Int, variable : String) : Unit = {
@@ -62,27 +61,24 @@ class STSolverZ3 {
     }
   }
 
-  def addParams(utilPms : SortedMap[String, (Expr[_], Int)], typ : Int, variable : String) : SortedMap[String, (Expr[_], Int)] = { // name : String,
-    var utilParams = utilPms
+  def addParams(name : String, typ : Int, variable : String) : Unit = {
     if(typ == integer) {
       println("Adding " + variable + " integer")
-      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap(variable -> (ctx.mkIntConst(variable), typ))
-      //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
-      utilParams + newParam// .integers = utilParams(name).integers + (variable -> ctx.mkIntConst(variable))
+      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap((variable -> (ctx.mkIntConst(variable), typ)))
+      val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
+      utilParams = utilParams + (name -> newParams)// .integers = utilParams(name).integers + (variable -> ctx.mkIntConst(variable))
     }
     else if(typ == boolean) {
-      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap(variable -> (ctx.mkBoolConst(variable), typ))
-      //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
-      utilParams + newParam // (name -> newParams)
+      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap((variable -> (ctx.mkBoolConst(variable), typ)))
+      val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
+      utilParams = utilParams + (name -> newParams)
     }
     else if(typ == string) {
-      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap(variable -> (ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()), typ))
-      //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
+      val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap((variable -> (ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()), typ)))
+      val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
       //utilParams = utilParams + (utilParams(name) ++ (variable -> ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort())))
-      utilParams + newParam //(name -> newParams)
+      utilParams = utilParams + (name -> newParams)
     }
-    else
-      null
   }
 
   def addFuncVars(funcVars : Variables, typ : Int, variable : String) : Variables = {
@@ -132,14 +128,14 @@ class STSolverZ3 {
 
   }
 
-  //  def saveUnsatConds(unsatCNF : CNF) : CNF = {
-  //    // for each combination of clauses
-  //    //    check which part of that clause is unsat (using z3), and return that one
-  //    //    if found the unsat part, no need to proceed with the loop
-  //    // start with the smallest combinations - optimisation
-  //    // include always the last condition/clause added as part of the unsat - optimisation
-  //    unsatCNF
-  //  }
+//  def saveUnsatConds(unsatCNF : CNF) : CNF = {
+//    // for each combination of clauses
+//    //    check which part of that clause is unsat (using z3), and return that one
+//    //    if found the unsat part, no need to proceed with the loop
+//    // start with the smallest combinations - optimisation
+//    // include always the last condition/clause added as part of the unsat - optimisation
+//    unsatCNF
+//  }
 
 
 
@@ -174,16 +170,16 @@ class STSolverZ3 {
     }
 
     //private var utilSolver: Map[String, com.microsoft.z3.Solver] = Map()
-    //    def createUtilSolver(name : String) : Unit = {
-    //      utilSolver = utilSolver + (name -> utilCtx(name).mkSolver())
-    //    }
-    //    def getUtilSolver(name : String): com.microsoft.z3.Solver = {
-    //      utilSolver(name)
-    //    }
-    //    def clearUtilSolver() : Unit = {
-    //      utilSolver = Map()
-    //      count = 0
-    //    }
+//    def createUtilSolver(name : String) : Unit = {
+//      utilSolver = utilSolver + (name -> utilCtx(name).mkSolver())
+//    }
+//    def getUtilSolver(name : String): com.microsoft.z3.Solver = {
+//      utilSolver(name)
+//    }
+//    def clearUtilSolver() : Unit = {
+//      utilSolver = Map()
+//      count = 0
+//    }
 
     def createFuncCall() : Variables = {
       // push
@@ -199,31 +195,31 @@ class STSolverZ3 {
 
     def getVars(name : String, typ : Int) : Expr[_] = {
       variables.vars(name)._1
-      //      if (typ == integer) {
-      //        variables.integers(name)
-      //      }
-      //      else if (typ == boolean) {
-      //        variables.booleans(name)
-      //      }
-      //      else if (typ == string) {
-      //        variables.strings(name)
-      //      }
-      //      else null
+//      if (typ == integer) {
+//        variables.integers(name)
+//      }
+//      else if (typ == boolean) {
+//        variables.booleans(name)
+//      }
+//      else if (typ == string) {
+//        variables.strings(name)
+//      }
+//      else null
     }
 
-    //    def getParam(name : String, funcName : String, typ : Int) : Expr[_] = {
-    //      // do smtn like getExpr for the parameters
-    //      if (typ == integer) {
-    //        utilParams(funcName).integers(name)
-    //      }
-    //      else if (typ == boolean) {
-    //        utilParams(funcName).booleans(name)
-    //      }
-    //      else if (typ == string) {
-    //        utilParams(funcName).strings(name)
-    //      }
-    //      else null
-    //    }
+//    def getParam(name : String, funcName : String, typ : Int) : Expr[_] = {
+//      // do smtn like getExpr for the parameters
+//      if (typ == integer) {
+//        utilParams(funcName).integers(name)
+//      }
+//      else if (typ == boolean) {
+//        utilParams(funcName).booleans(name)
+//      }
+//      else if (typ == string) {
+//        utilParams(funcName).strings(name)
+//      }
+//      else null
+//    }
 
     def getFuncVars(funcVars : Variables, name : String) : (Expr[_], Int) = { // , typ : Int
 
@@ -248,106 +244,106 @@ class STSolverZ3 {
         null
       }
 
-      //      if (typ == integer) {
-      //        funcVars.integers(name)
-      //      }
-      //      else if (typ == boolean) {
-      //        funcVars.booleans(name)
-      //      }
-      //      else if (typ == string) {
-      //        funcVars.strings(name)
-      //      }
-      //      else null
+//      if (typ == integer) {
+//        funcVars.integers(name)
+//      }
+//      else if (typ == boolean) {
+//        funcVars.booleans(name)
+//      }
+//      else if (typ == string) {
+//        funcVars.strings(name)
+//      }
+//      else null
 
     }
 
-    //    def getLengthVars(vars : Variables) : Int = {
-    //      vars.integers.size + vars.booleans.size + vars.strings.size
-    //    }
+//    def getLengthVars(vars : Variables) : Int = {
+//      vars.integers.size + vars.booleans.size + vars.strings.size
+//    }
 
     private var count = 0
     def incCount() : Unit = {
       count+=1
     }
 
-    //    def traverse(tree: Tree): Unit =
-    //      tree match {
-    //        case Term.Name(name) =>
-    //          // probably is a singular boolean variable, as in any other case it would form part of a formula
-    //          println("Term name " + name + " ##")
-    //          solver.add(variablesBool(name))
-    //        case Term.ApplyInfix(lhs, Term.Name(op), tArgs, args) =>
-    //          // has to be recursive over the term names
-    //          println("Term apply infix " + lhs.toString() + " " + op + " " + args.head.toString())
-    //          if(args.length > 1) {
-    //            println("Note: There are more args in this infix")
-    //          }
-    //
-    //          // variablesBool(lhs.toString())
-    //          op match {
-    //            case "&&" =>
-    //              var lhsBool = traverse(lhs)
-    //              for (arg <- args)
-    //                lhsBool = ctx.mkAnd(lhsBool, variablesBool(arg.toString()))
-    //              solver.add(lhsBool)
-    //            case "||" =>
-    //              var lhsBool = variablesBool(lhs.toString())
-    //              for (arg <- args)
-    //                lhsBool = ctx.mkOr(lhsBool, variablesBool(arg.toString()))
-    //              solver.add(lhsBool)
-    //            case "+" =>
-    //              var lhsInt = ctx.mkAdd(variablesInt(lhs.toString()), ctx.mkIntConst("0"))
-    //              for (arg <- args)
-    //                lhsInt = ctx.mkAdd(lhsInt, variablesInt(arg.toString()))
-    //              solver.add(lhsInt)
-    //            case "-" =>
-    //              var lhsInt = ctx.mkAdd(variablesInt(lhs.toString()), ctx.mkIntConst("0"))
-    //              for (arg <- args)
-    //                lhsInt = ctx.mkSub(lhsInt, variablesInt(arg.toString()))
-    //              solver.add(lhsInt)
-    //            case "*" =>
-    //              var lhsInt = ctx.mkAdd(variablesInt(lhs.toString()), ctx.mkIntConst("0"))
-    //              for (arg <- args)
-    //                lhsInt = ctx.mkMul(lhsInt, variablesInt(arg.toString()))
-    //              solver.add(lhsInt)
-    //            case "/" =>
-    //              var lhsInt = ctx.mkAdd(variablesInt(lhs.toString()), ctx.mkIntConst("0"))
-    //              for (arg <- args)
-    //                lhsInt = ctx.mkDiv(lhsInt, variablesInt(arg.toString()))
-    //              solver.add(lhsInt)
-    //          }
+//    def traverse(tree: Tree): Unit =
+//      tree match {
+//        case Term.Name(name) =>
+//          // probably is a singular boolean variable, as in any other case it would form part of a formula
+//          println("Term name " + name + " ##")
+//          solver.add(variablesBool(name))
+//        case Term.ApplyInfix(lhs, Term.Name(op), tArgs, args) =>
+//          // has to be recursive over the term names
+//          println("Term apply infix " + lhs.toString() + " " + op + " " + args.head.toString())
+//          if(args.length > 1) {
+//            println("Note: There are more args in this infix")
+//          }
+//
+//          // variablesBool(lhs.toString())
+//          op match {
+//            case "&&" =>
+//              var lhsBool = traverse(lhs)
+//              for (arg <- args)
+//                lhsBool = ctx.mkAnd(lhsBool, variablesBool(arg.toString()))
+//              solver.add(lhsBool)
+//            case "||" =>
+//              var lhsBool = variablesBool(lhs.toString())
+//              for (arg <- args)
+//                lhsBool = ctx.mkOr(lhsBool, variablesBool(arg.toString()))
+//              solver.add(lhsBool)
+//            case "+" =>
+//              var lhsInt = ctx.mkAdd(variablesInt(lhs.toString()), ctx.mkIntConst("0"))
+//              for (arg <- args)
+//                lhsInt = ctx.mkAdd(lhsInt, variablesInt(arg.toString()))
+//              solver.add(lhsInt)
+//            case "-" =>
+//              var lhsInt = ctx.mkAdd(variablesInt(lhs.toString()), ctx.mkIntConst("0"))
+//              for (arg <- args)
+//                lhsInt = ctx.mkSub(lhsInt, variablesInt(arg.toString()))
+//              solver.add(lhsInt)
+//            case "*" =>
+//              var lhsInt = ctx.mkAdd(variablesInt(lhs.toString()), ctx.mkIntConst("0"))
+//              for (arg <- args)
+//                lhsInt = ctx.mkMul(lhsInt, variablesInt(arg.toString()))
+//              solver.add(lhsInt)
+//            case "/" =>
+//              var lhsInt = ctx.mkAdd(variablesInt(lhs.toString()), ctx.mkIntConst("0"))
+//              for (arg <- args)
+//                lhsInt = ctx.mkDiv(lhsInt, variablesInt(arg.toString()))
+//              solver.add(lhsInt)
+//          }
 
 
 
-    //      case Apply(fun, args) => // and are "ignored"? since the addition of the assert statements make up the conjunction
-    //        println("Apply " + fun.toString() + " args: " + args.toString() + " ##")
-    ////        if (fun.toString().contains("util.")) {
-    ////          smtlibVariables = smtlibVariables + "(declare-fun " + fun.toString() + " Bool)\n"
-    ////        }
-    ////        else {
-    //          super.traverse(fun)
-    //          super.traverseTrees(args)
-    ////        }
-    //      case Ident(name) => // is this only accessed when the identifier is alone? check
-    //        println("Ident " + name + " ##")
-    //        smtlibString = smtlibString + "(assert " + name + ")\n"
-    //      case Select(ident, op) => // til now only accessed when there us unary, ands are accessed by apply
-    //        println("Select " + ident.toString() + " operator: " + op.toString + " ##")
-    //        var tmpOp = op.toString
-    //        tmpOp = tmpOp.replace("unary_$bang", "not ")
-    //        smtlibString = smtlibString + "(assert (" + tmpOp + ident.toString() + " ))\n"
-    //      case List(elts) => // when is this accessed
-    //        println("List " + elts.toString + " ##")
-    //      case Block(arg1, arg2) => // for util functions
-    //        println("Block:")
-    //        println(arg1.toString())
-    //        println("##")
-    //        println(arg2.toString())
-    //        println("##")
-    //        case _ =>
-    //          println("Other ##")
-    //  //        super.traverse(tree)
-    //    }
+//      case Apply(fun, args) => // and are "ignored"? since the addition of the assert statements make up the conjunction
+//        println("Apply " + fun.toString() + " args: " + args.toString() + " ##")
+////        if (fun.toString().contains("util.")) {
+////          smtlibVariables = smtlibVariables + "(declare-fun " + fun.toString() + " Bool)\n"
+////        }
+////        else {
+//          super.traverse(fun)
+//          super.traverseTrees(args)
+////        }
+//      case Ident(name) => // is this only accessed when the identifier is alone? check
+//        println("Ident " + name + " ##")
+//        smtlibString = smtlibString + "(assert " + name + ")\n"
+//      case Select(ident, op) => // til now only accessed when there us unary, ands are accessed by apply
+//        println("Select " + ident.toString() + " operator: " + op.toString + " ##")
+//        var tmpOp = op.toString
+//        tmpOp = tmpOp.replace("unary_$bang", "not ")
+//        smtlibString = smtlibString + "(assert (" + tmpOp + ident.toString() + " ))\n"
+//      case List(elts) => // when is this accessed
+//        println("List " + elts.toString + " ##")
+//      case Block(arg1, arg2) => // for util functions
+//        println("Block:")
+//        println(arg1.toString())
+//        println("##")
+//        println(arg2.toString())
+//        println("##")
+//        case _ =>
+//          println("Other ##")
+//  //        super.traverse(tree)
+//    }
 
     // these return all possible combinations of a desired type
     def getBoolExpr(arg : Term, funcVars : Variables) : BoolExpr = arg match {
@@ -372,7 +368,7 @@ class STSolverZ3 {
 
       case funcCall @ Term.Apply(fun, args) =>
         traverseFuncBool(funcCall, funcVars)
-      //null
+        //null
 
       case _ =>
         println("TERM TYPE MISMATCH : BoolExpr")
@@ -436,11 +432,11 @@ class STSolverZ3 {
         expr = getIntExpr(arg, funcVars)
         typ = integer
       }
-      //      if (expr == null) {
-      //        println("Getting arith infix expression...")
-      //        expr = getArithExpr(arg, context, funcVars)
-      //        typ = integer
-      //      }
+//      if (expr == null) {
+//        println("Getting arith infix expression...")
+//        expr = getArithExpr(arg, context, funcVars)
+//        typ = integer
+//      }
       if (expr == null) {
         expr = getStringExpr(arg, funcVars)
         typ = string
@@ -473,9 +469,9 @@ class STSolverZ3 {
       }
     }
 
-    //    def interpret(name : String, interpretation : Int, context : Context) : IntExpr = {
-    //
-    //    }
+//    def interpret(name : String, interpretation : Int, context : Context) : IntExpr = {
+//
+//    }
 
     // called from traverse func call, which is called by get bool expr
     def addFuncCall(name : String, args : List[Term], funcVars : Variables) : ListBuffer[Expr[_]] = {
@@ -485,14 +481,14 @@ class STSolverZ3 {
       // another limitation : util functions are all of type bool
       //solv.push()
       //val boolFunc = getBoolExpr(func, context)
-      //      func match {
-      //        case boolFunc @ BoolExpr =>
-      //          solv.add(boolFunc)
-      //        case _ =>
-      //          println("Util function not boolean type")
-      //          pause()
-      //      }
-      // ----------------------------------------------------------------------------------------------------------
+//      func match {
+//        case boolFunc @ BoolExpr =>
+//          solv.add(boolFunc)
+//        case _ =>
+//          println("Util function not boolean type")
+//          pause()
+//      }
+       // ----------------------------------------------------------------------------------------------------------
       // handling parameters
       //var paramDecls : Array[Expr[_]] = Array()
       val constDecls = func.getConstDecls // getting all declarations made within the function (not inc params - params inc coz of decl in util building)
@@ -501,19 +497,19 @@ class STSolverZ3 {
         println(c.toString)
 
       println("Params of " + name)
-      println(utilParams)
+      println(utilParams(name))
 
       var interList : ListBuffer[Expr[_]] = ListBuffer() // to store list of interpretations (model of each variable)
 
       // check that the lists are the same size, and use a counter to iterate and match param with arg
-      if (args.length == utilParams.size) { // getLengthVars(utilParams(name)
+      if (args.length == utilParams(name).size) { // getLengthVars(utilParams(name)
         var counter = 0
         while (counter < args.length) {
           val arg = args(counter)
           println("getting arg and param")
           val (argExpr, typTemp) = getExpr(arg, funcVars)
           println("got arg " + argExpr.toString)
-          val param : Expr[_] = utilParams(utilParams.keys.toList(counter))._1 // getParam()
+          val param : Expr[_] = utilParams(name)(utilParams(name).keys.toList(counter))._1 // getParam()
           println("got param " + param.toString)
 
           // params needs to be created when util parsed
@@ -522,20 +518,20 @@ class STSolverZ3 {
           // so need to be assigned before
           // need method to retrieve the expressions to make the argument equality assertion
 
-          //          val paramExpr : Expr[_] = param match {
-          //            case Term.Param(mods, Term.Name(name), Some(Type.Name(typ)), maybeTerm) =>
-          //              if (typ == "String") context.mkConst(context.mkSymbol(name), context.mkStringSort()) //context.mkString(name) // do i need to save this?
-          //              else if (typ == "Int") context.mkIntConst(name)
-          //              else if (typ == "Boolean")  context.mkBoolConst(name)
-          //              else {
-          //                println("THIS IS NOT A VALID PARAMETER TYPE")
-          //                null
-          //              }
-          //            case _  =>
-          //              println("Param of wrong syntax")
-          //              pause()
-          //              null
-          //          }
+//          val paramExpr : Expr[_] = param match {
+//            case Term.Param(mods, Term.Name(name), Some(Type.Name(typ)), maybeTerm) =>
+//              if (typ == "String") context.mkConst(context.mkSymbol(name), context.mkStringSort()) //context.mkString(name) // do i need to save this?
+//              else if (typ == "Int") context.mkIntConst(name)
+//              else if (typ == "Boolean")  context.mkBoolConst(name)
+//              else {
+//                println("THIS IS NOT A VALID PARAMETER TYPE")
+//                null
+//              }
+//            case _  =>
+//              println("Param of wrong syntax")
+//              pause()
+//              null
+//          }
           // adding assert to context that arg is eq to param
           //val paramExpr : Expr[_] = null //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! get the expression from the constDecl
           //paramDecls = paramDecls :+ paramExpr
@@ -560,13 +556,13 @@ class STSolverZ3 {
           println("Parameter setting >> " + equality)
           pause()
 
-          //          var inter = null
-          //          for (constDecl <- constDecls){
-          //            if (constDecl.getName == param.name) {
-          //              inter = func.getConstInterp(constDecl)
-          //              inter = inter.toString.replace(param.name, arg.name)
-          //            }
-          //          }
+//          var inter = null
+//          for (constDecl <- constDecls){
+//            if (constDecl.getName == param.name) {
+//              inter = func.getConstInterp(constDecl)
+//              inter = inter.toString.replace(param.name, arg.name)
+//            }
+//          }
           // turn it to string
           // change name there
           // change it back?
@@ -618,8 +614,8 @@ class STSolverZ3 {
         val inter = interpret(name, interpretation)
         println("after inter method :: " + inter)
         interList+=inter
-        //        if (inter != null)
-        //          solv.add(inter)
+//        if (inter != null)
+//          solv.add(inter)
         println("Added " + name + " to interpretations")
         //pause()
       }
@@ -664,9 +660,9 @@ class STSolverZ3 {
             null
           }
         }
-      //null //else
+        //null //else
 
-      //solver.add(variablesBool(name))
+        //solver.add(variablesBool(name))
       case _ =>
         null
     }
@@ -705,12 +701,12 @@ class STSolverZ3 {
             null
           }
         }
-      //        if (variables.vars.keySet.contains(name)) // .integers
-      //          variables.vars(name).asInstanceOf[IntExpr]
-      //        else { // search also in parameters and in decls within function
-      //          // see how to differentiate between all the variables' names if they are the same and all
-      //          null
-      //        }
+//        if (variables.vars.keySet.contains(name)) // .integers
+//          variables.vars(name).asInstanceOf[IntExpr]
+//        else { // search also in parameters and in decls within function
+//          // see how to differentiate between all the variables' names if they are the same and all
+//          null
+//        }
 
       //solver.add(variablesBool(name))
       case _ =>
@@ -1096,24 +1092,24 @@ class STSolverZ3 {
           println(body.toString())
           // must unroll, no blocks and pushes and pops
           // must change all the decls (as per example)
-          //          var count = 0
-          //        //{
-          //          var funcVarsTemp: Variables = new Variables()
-          //          for (funcVar <- funcVars.vars) { // new set of variables
-          //            val funcVarNameTemp = funcVar._1 + "_" + count
-          //            val funcVarValTemp = funcVar._2
-          //            funcVarsTemp.vars = funcVarsTemp.vars + (funcVarNameTemp -> funcVarValTemp)
-          //            count = count + 1
-          //          }
-          //          var loopCond = getBoolExpr(expr, funcVars)
-          //          body match {
-          //            case Term.Block(stats) =>
-          //              var block : ListBuffer[Expr[_]] = ListBuffer()
-          //              for(bodyStat <- stats) {
-          //                //block = block + traverseStat(bodyStat, funcVarsTemp)
-          //              }
-          //          }
-          //
+//          var count = 0
+//        //{
+//          var funcVarsTemp: Variables = new Variables()
+//          for (funcVar <- funcVars.vars) { // new set of variables
+//            val funcVarNameTemp = funcVar._1 + "_" + count
+//            val funcVarValTemp = funcVar._2
+//            funcVarsTemp.vars = funcVarsTemp.vars + (funcVarNameTemp -> funcVarValTemp)
+//            count = count + 1
+//          }
+//          var loopCond = getBoolExpr(expr, funcVars)
+//          body match {
+//            case Term.Block(stats) =>
+//              var block : ListBuffer[Expr[_]] = ListBuffer()
+//              for(bodyStat <- stats) {
+//                //block = block + traverseStat(bodyStat, funcVarsTemp)
+//              }
+//          }
+//
 
           //New Method
           // parse condition in a push by itself
@@ -1139,32 +1135,32 @@ class STSolverZ3 {
           }
           solver.pop()
 
-        // NEXT STEP
-        // parse stats as normal (fix error above)
-        // when assignment make sure to refer to previous variables (funcvars_n-1) in rhs, and lhs is new funcvars_n
-        // dats the only thing i need to consider differently in the stats parsing, everything else remains unchagnged?
-        // wait no after assignment, change the default funcvar used from _n-1 to _n so that the updated assignment is use dby default
+          // NEXT STEP
+          // parse stats as normal (fix error above)
+          // when assignment make sure to refer to previous variables (funcvars_n-1) in rhs, and lhs is new funcvars_n
+          // dats the only thing i need to consider differently in the stats parsing, everything else remains unchagnged?
+          // wait no after assignment, change the default funcvar used from _n-1 to _n so that the updated assignment is use dby default
 
-        // should i only do it for simple loops only?
+          // should i only do it for simple loops only?
 
-        // not condition and things after loop
-        // but if before contradicts condition, it should not return unsat
-        // if prev and condition unsat, simply skip whole block and condition
-        // if they are fine, just copmare the not of the condition with anything after
-        // the loop is guaranteed to end, and anything in the loop will not affect anything outside (in the case of simple loops)
-        // simple loops = only variables present in the condition will be affected in the body
+          // not condition and things after loop
+          // but if before contradicts condition, it should not return unsat
+          // if prev and condition unsat, simply skip whole block and condition
+          // if they are fine, just copmare the not of the condition with anything after
+          // the loop is guaranteed to end, and anything in the loop will not affect anything outside (in the case of simple loops)
+          // simple loops = only variables present in the condition will be affected in the body
 
-        // FOR LOOP
-        // just do same stuff as function and repeat it
-        // the no of repetitions is known already so the no of reps is known
-        // do it like function
+          // FOR LOOP
+          // just do same stuff as function and repeat it
+          // the no of repetitions is known already so the no of reps is known
+          // do it like function
 
-        //          var bodyExpr = getExpr(body, funcVars)
-        //          ctx.mkImplies(loopCond, bodyExpr._1.asInstanceOf[Expr[BoolSort]])
-        //            var block : ListBuffer[Expr[_]] = ListBuffer()
-        //            for(bodyStat <- body) {
-        //              block = block ++ traverseStat(bodyStat, )
-        //            }
+//          var bodyExpr = getExpr(body, funcVars)
+//          ctx.mkImplies(loopCond, bodyExpr._1.asInstanceOf[Expr[BoolSort]])
+//            var block : ListBuffer[Expr[_]] = ListBuffer()
+//            for(bodyStat <- body) {
+//              block = block ++ traverseStat(bodyStat, )
+//            }
         //}
         // get the terms used in the condition
         // declare them with "_n" each time
@@ -1193,12 +1189,12 @@ class STSolverZ3 {
             println("Checking sat....")
           }
           solver.pop()
-        //        case Term.For(enums, body) =>
-        //          println(enums)
-        //          for(enum <- enums) {
-        //            println(enum)
-        //          }
-        // cant take array variables i guess
+//        case Term.For(enums, body) =>
+//          println(enums)
+//          for(enum <- enums) {
+//            println(enum)
+//          }
+          // cant take array variables i guess
         case Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) => // only called by util
           // this is function call within util function
           // adds all interpretations as a list of assertions in the solver of the function
@@ -1223,65 +1219,60 @@ class STSolverZ3 {
       funcVars
     }
 
-    //    def getTermNames(expr : Term) : List[String] = {
-    //      // convert to string
-    //      // find the first Term.Name
-    //      // remove anything before, and the Term.Name( too
-    //      // get whatever is in bracket
-    //      // if it is not in the list, save it
-    //      // if not skip
-    //      // remove bracket and repeat process
-    //      var stringExpr = expr.toString()
-    //      print(stringExpr)
-    //      while (stringExpr.nonEmpty) {
-    //        if(stringExpr(0) == 'T'){
-    //          val termDotName = stringExpr.substring(0, Math.min(stringExpr.length, 10))
-    //          if (termDotName == "Term.Name("){
-    //
-    //          }
-    //          else {
-    //            stringExpr.drop(Math.min(stringExpr.length, 10))
-    //          }
-    //        }
-    //        else {
-    //          stringExpr.drop(0)
-    //        }
-    //      }
-    //
-    //    }
+//    def getTermNames(expr : Term) : List[String] = {
+//      // convert to string
+//      // find the first Term.Name
+//      // remove anything before, and the Term.Name( too
+//      // get whatever is in bracket
+//      // if it is not in the list, save it
+//      // if not skip
+//      // remove bracket and repeat process
+//      var stringExpr = expr.toString()
+//      print(stringExpr)
+//      while (stringExpr.nonEmpty) {
+//        if(stringExpr(0) == 'T'){
+//          val termDotName = stringExpr.substring(0, Math.min(stringExpr.length, 10))
+//          if (termDotName == "Term.Name("){
+//
+//          }
+//          else {
+//            stringExpr.drop(Math.min(stringExpr.length, 10))
+//          }
+//        }
+//        else {
+//          stringExpr.drop(0)
+//        }
+//      }
+//
+//    }
 
-    // call this from function calls now
-    def traverseBlock(funcName : String) : Unit = {
+    // function contents
+    def traverseBlock(funcName : String, params : List[Term.Param], stats : List[Stat]) : Unit = {
       //var paramsExpr : ListBuffer[Expr[_]] = ListBuffer()
       // these will be irrelevent in the future when the function is being called
       // they will be rebuilt. these variables are only temporary until the model is retrieved
       println("Traversing block ...")
-      val (params, stats) = utilFuncs(funcName)
-
-      var utilParams : SortedMap[String, (Expr[_], Int)] = SortedMap()
-
       // ADD FUNCTION TO UTIL PARAMS
-      //val newFunc : SortedMap[String, (Expr[_], Int)] = SortedMap()
-      //utilParams = utilParams + newFunc // (funcName -> newFunc)
-
+      val newFunc : SortedMap[String, (Expr[_], Int)] = SortedMap()
+      utilParams = utilParams + (funcName -> newFunc)
       for (param <- params) {
         println("Current param ... " + param.toString())
         param match {
           case Term.Param(mods, Term.Name(termName), Some(Type.Name(typ)), maybeTerm) =>
             if(typ == "String") {
               //paramsExpr += context.mkConst(context.mkSymbol(termName), context.mkStringSort())
-              addParams(utilParams, string, termName)
+              addParams(funcName, string, termName)
             } // do i need to save this?
             else if (typ == "Int") {
               //paramsExpr += context.mkIntConst(termName)
-//              println("Traversing integer parameter ...")
-//              println("funcName : " + funcName)
-//              println("termName : " + termName)
-              addParams(utilParams, integer, termName)
+              println("Traversing integer parameter ...")
+              println("funcName : " + funcName)
+              println("termName : " + termName)
+              addParams(funcName, integer, termName)
             }
             else if (typ == "Boolean")  {
               //paramsExpr += context.mkBoolConst(termName)
-              addParams(utilParams, boolean, termName)
+              addParams(funcName, boolean, termName)
             }
             else println("THIS IS NOT A VALID PARAMETER TYPE")
           case _  =>
@@ -1294,7 +1285,7 @@ class STSolverZ3 {
       //utilParams = utilParams + (name -> paramsExpr.toList)
 
       var funcVars : Variables = new Variables() // parameters not included in funcVars
-      for (param <- utilParams) {
+      for (param <- utilParams(funcName)) {
         funcVars.vars = funcVars.vars + (param._1 -> param._2)
       }
 
@@ -1309,31 +1300,30 @@ class STSolverZ3 {
       for (defn <- defns) {
         println("Traversing defn ...")
         defn match {
-          // dont replace the names of the parameters to the arguments, just add an assertion to make sure they are equal
+            // dont replace the names of the parameters to the arguments, just add an assertion to make sure they are equal
           case Defn.Def(a, Term.Name(name), b, List(params), typ, Term.Block(stats)) => // handle params by saving them as variables
-//            createContext() // add context for function
+            createContext() // add context for function
             //createUtilSolver(name)
-//            traverseBlock(name, params, stats) // traverse function and add assertions
+            traverseBlock(name, params, stats) // traverse function and add assertions
 
             // checking sat and getting model
-//            if(solver.check == Status.SATISFIABLE) { // solv._2
-//              val model = solver.getModel // solv._2
-//              println("Model " + name + " : ") // solv._1
-//              println(model.toString)
-//              // saving only the model
-//              utilFuncs = utilFuncs + (name -> model) // solv._1
-//              pause()
-//            }
-//            else {
-//              println("There is no model, function is unsatisfiable")
-//              utilFuncs = utilFuncs + (name -> null) // solv._1
-//              pause()
-//              // no model assignment if unsat
-//            }
+            if(solver.check == Status.SATISFIABLE) { // solv._2
+              val model = solver.getModel // solv._2
+              println("Model " + name + " : ") // solv._1
+              println(model.toString)
+              // saving only the model
+              utilFuncs = utilFuncs + (name -> model) // solv._1
+              pause()
+            }
+            else {
+              println("There is no model, function is unsatisfiable")
+              utilFuncs = utilFuncs + (name -> null) // solv._1
+              pause()
+              // no model assignment if unsat
+            }
 
 
-//            removeContext()
-            utilFuncs = utilFuncs + (name -> (params, stats))
+            removeContext()
 
           case _ =>
             println("TERM TYPE MISMATCH : Definition")
@@ -1366,19 +1356,19 @@ class STSolverZ3 {
 
       println("Util traversed ::")
       //for (solv <- utilSolver) {
-      //      if(solver.check == Status.SATISFIABLE) { // solv._2
-      //        val model = solver.getModel // solv._2
-      //        println("Model " + solver + " : ") // solv._1
-      //        println(model.toString)
-      //        utilFuncs = utilFuncs + (solver -> model) // solv._1
-      //        pause()
-      //      }
-      //      else {
-      //        println("There is no model, function is unsatisfiable")
-      //        utilFuncs = utilFuncs + (solver -> null) // solv._1
-      //        pause()
-      //        // no model assignment if unsat
-      //      }
+//      if(solver.check == Status.SATISFIABLE) { // solv._2
+//        val model = solver.getModel // solv._2
+//        println("Model " + solver + " : ") // solv._1
+//        println(model.toString)
+//        utilFuncs = utilFuncs + (solver -> model) // solv._1
+//        pause()
+//      }
+//      else {
+//        println("There is no model, function is unsatisfiable")
+//        utilFuncs = utilFuncs + (solver -> null) // solv._1
+//        pause()
+//        // no model assignment if unsat
+//      }
       //}
 
     } // for getting util specifically
@@ -1423,11 +1413,11 @@ class STSolverZ3 {
       pause()
       traverser.traverseUtil(utilTree)
 
-      //      for (context <- utilCtx.toIterator) {
-      //        println("Function : " + context._1)
-      //        println(traverser.getUtilSolver(context._1).toString)
-      //        println()
-      //      }
+//      for (context <- utilCtx.toIterator) {
+//        println("Function : " + context._1)
+//        println(traverser.getUtilSolver(context._1).toString)
+//        println()
+//      }
 
     }
     else {
@@ -1448,12 +1438,12 @@ class STSolverZ3 {
     pause()
 
     for (variable <- vars) {
-      //      if (variable._2.contains("ean")) {
-      //        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " Bool)\n"
-      //      }
-      //      else {
-      //        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " " + variable._2 + ")\n"
-      //      }
+//      if (variable._2.contains("ean")) {
+//        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " Bool)\n"
+//      }
+//      else {
+//        smtlibVariables = smtlibVariables + "(declare-const " + variable._1 + " " + variable._2 + ")\n"
+//      }
       variable._2 match {
         case "Int" =>
           addVars(integer, variable._1)
@@ -1467,40 +1457,40 @@ class STSolverZ3 {
 
     println("All variables >>>")
     println(variables.vars)
-    //    println(variables.booleans)
-    //    println(variables.strings)
+//    println(variables.booleans)
+//    println(variables.strings)
     pause()
 
-    //    if (conditions.contains("util")) {
-    //      //utilTree = toolbox.parse(util)
-    //      utilTree = util.parse[Source].get
-    //      println(" ++++++++++++++ UTIL TREE ++++++++++++++")
-    //      //println(showRaw(utilTree))
-    //      println(utilTree.structure)
-    //      println(" +++++++++++++++++++++++++++++++++++++++")
-    //      //traverser.traverse(utilTree)
-    //      // now build one whole assert statement based on each function in the util tree
-    //      // no, the types of the functions are declared first and then the functions and their parameters are inputted and asserted
-    //      // nope, change the function called into z3 and use assert statement on returned boolean value (im bad at explaining)
-    //
-    //      /*
-    //      utilTree match {
-    //        case Block(block, empty) =>
-    //          block match {
-    //            case List(elts) =>
-    //
-    //            case Apply(fun, args) =>
-    //              smtlibVariables = smtlibVariables + "(declare-fun " + fun.toString() + " )\n"
-    //          }
-    //        case _ =>
-    //          println("This is not a block")
-    //      }
-    //       */
-    //
-    //    }
-    //    else {
-    //      utilTree = null
-    //    }
+//    if (conditions.contains("util")) {
+//      //utilTree = toolbox.parse(util)
+//      utilTree = util.parse[Source].get
+//      println(" ++++++++++++++ UTIL TREE ++++++++++++++")
+//      //println(showRaw(utilTree))
+//      println(utilTree.structure)
+//      println(" +++++++++++++++++++++++++++++++++++++++")
+//      //traverser.traverse(utilTree)
+//      // now build one whole assert statement based on each function in the util tree
+//      // no, the types of the functions are declared first and then the functions and their parameters are inputted and asserted
+//      // nope, change the function called into z3 and use assert statement on returned boolean value (im bad at explaining)
+//
+//      /*
+//      utilTree match {
+//        case Block(block, empty) =>
+//          block match {
+//            case List(elts) =>
+//
+//            case Apply(fun, args) =>
+//              smtlibVariables = smtlibVariables + "(declare-fun " + fun.toString() + " )\n"
+//          }
+//        case _ =>
+//          println("This is not a block")
+//      }
+//       */
+//
+//    }
+//    else {
+//      utilTree = null
+//    }
 
     //println("Declared variables ##")
     //println(smtlibVariables)
@@ -1520,29 +1510,29 @@ class STSolverZ3 {
     println("Traversed")
     pause()
 
-    //    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString + "(check-sat)\n(get-model)"
+//    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString + "(check-sat)\n(get-model)"
 
-    //
-    //    println("--- SMTLIB ---")
-    //    println(smtlibConditions)
-    //    println("--------------")
+//
+//    println("--- SMTLIB ---")
+//    println(smtlibConditions)
+//    println("--------------")
 
 
-    //    smtlibConditions =
-    //      """
-    //        |(declare-const x Int)
-    //        |(declare-const y Int)
-    //        |(declare-const z Int)
-    //        |(declare-const a1 (Array Int Int))
-    //        |(declare-const a2 (Array Int Int))
-    //        |(declare-const a3 (Array Int Int))
-    //        |(assert (= (select a1 x) x))
-    //        |(assert (= (store a1 x y) a1))
-    //        |(assert (not (= x y)))
-    //        |(check-sat)
-    //        |""".stripMargin
+//    smtlibConditions =
+//      """
+//        |(declare-const x Int)
+//        |(declare-const y Int)
+//        |(declare-const z Int)
+//        |(declare-const a1 (Array Int Int))
+//        |(declare-const a2 (Array Int Int))
+//        |(declare-const a3 (Array Int Int))
+//        |(assert (= (select a1 x) x))
+//        |(assert (= (store a1 x y) a1))
+//        |(assert (not (= x y)))
+//        |(check-sat)
+//        |""".stripMargin
 
-    //    smtlibConditions
+//    smtlibConditions
 
   }
 
@@ -1577,58 +1567,58 @@ class STSolverZ3 {
 
   }
 
-  //  def propositionalVariables(formula : Term) : Set[String] = formula match {
-  //    case True() | False() => Set() // syntax for defining multiple cases at once
-  //    case QualifiedIdentifier(SimpleIdentifier(id), _) => Set(id.name) // propositional variable with SSymbol identifier "id"
-  //    case Not(f) => propositionalVariables(f)
-  //    case Or(disjuncts@_*) => // The Or and And constructors take variable-length argument sequences; this is the generalised pattern-matching sequence for matching an Or with "disjuncts" as the sequence of disjunct terms (which is a Scala Seq[Term] value)
-  //      disjuncts.foldLeft[Set[String]](Set())((set,d) => set union propositionalVariables(d)) // See foldLeft in http://www.scala-lang.org/api/2.12.0/scala/collection/Seq.html
-  //    case And(conjuncts@_*) => conjuncts.foldLeft[Set[String]](Set())((set,c) => set union propositionalVariables(c))
-  //    case Implies(f,g) => propositionalVariables(f) union propositionalVariables(g)
-  //    case Equals(f,g) => propositionalVariables(f) union propositionalVariables(g)
-  //  }
-  //
-  //  private val bool = Sort(Identifier(SSymbol("Bool"), Seq()))
-  //
-  //  private def declareVariable(name: String) = {
-  //    DeclareFun(SSymbol(name), Seq(), bool)
-  //  }
-  //
-  //  private def declareVariables(formula: Term) = {
-  //    propositionalVariables(formula) map declareVariable
-  //  }
+//  def propositionalVariables(formula : Term) : Set[String] = formula match {
+//    case True() | False() => Set() // syntax for defining multiple cases at once
+//    case QualifiedIdentifier(SimpleIdentifier(id), _) => Set(id.name) // propositional variable with SSymbol identifier "id"
+//    case Not(f) => propositionalVariables(f)
+//    case Or(disjuncts@_*) => // The Or and And constructors take variable-length argument sequences; this is the generalised pattern-matching sequence for matching an Or with "disjuncts" as the sequence of disjunct terms (which is a Scala Seq[Term] value)
+//      disjuncts.foldLeft[Set[String]](Set())((set,d) => set union propositionalVariables(d)) // See foldLeft in http://www.scala-lang.org/api/2.12.0/scala/collection/Seq.html
+//    case And(conjuncts@_*) => conjuncts.foldLeft[Set[String]](Set())((set,c) => set union propositionalVariables(c))
+//    case Implies(f,g) => propositionalVariables(f) union propositionalVariables(g)
+//    case Equals(f,g) => propositionalVariables(f) union propositionalVariables(g)
+//  }
+//
+//  private val bool = Sort(Identifier(SSymbol("Bool"), Seq()))
+//
+//  private def declareVariable(name: String) = {
+//    DeclareFun(SSymbol(name), Seq(), bool)
+//  }
+//
+//  private def declareVariables(formula: Term) = {
+//    propositionalVariables(formula) map declareVariable
+//  }
 
-  //  def processConditions(commandStream : Stream[Command]) : Stream[Command] = { // ParserTerms
-  //    // do the things to read the smtlib file and change them to term NO TO COMMANDS
-  //    // OR
-  //    // there s an smtlib command that makes z3 check sat (see z3 easy tutorial) <-- TRY THIS FIRST
-  //    // ^ this actually doesn't work nevermind
-  //
-  //
-  //    val script = convertConditionsToSMTLIB(conditions, variables, util)
-  //
-  //    script
-  //  }
+//  def processConditions(commandStream : Stream[Command]) : Stream[Command] = { // ParserTerms
+//    // do the things to read the smtlib file and change them to term NO TO COMMANDS
+//    // OR
+//    // there s an smtlib command that makes z3 check sat (see z3 easy tutorial) <-- TRY THIS FIRST
+//    // ^ this actually doesn't work nevermind
+//
+//
+//    val script = convertConditionsToSMTLIB(conditions, variables, util)
+//
+//    script
+//  }
   // COMBINE THE ABOVE AND BELOW TWO FUNCTIONS
-  //  private def createInputStream(formula: Term): Stream[Command] = {
-  //    // find a method to convert the conditions into smtlib format easily
-  //
-  //    SetOption(ProduceModels(true)) #::
-  //      SetLogic(QF_UF()) #::
-  //      declareVariables(formula).toStream #:::
-  //      Assert(formula) #::
-  //      CheckSat() #::
-  //      //    GetModel() #::
-  //      Stream.empty[Command]
+//  private def createInputStream(formula: Term): Stream[Command] = {
+//    // find a method to convert the conditions into smtlib format easily
+//
+//    SetOption(ProduceModels(true)) #::
+//      SetLogic(QF_UF()) #::
+//      declareVariables(formula).toStream #:::
+//      Assert(formula) #::
+//      CheckSat() #::
+//      //    GetModel() #::
+//      Stream.empty[Command]
 
-  //    SetOption(ProduceModels(true)) #::
-  //      SetLogic(QF_UF()) #::
-  //      //declareVariables(formula).toStream #::// declareVariables(formula).toStream #::: // dont do this stuff just convert the conditions to commands and it will read those
-  //      Assert(formula) #::
-  //      CheckSat() #::
-  //      //    GetModel() #::
-  //      Stream.empty[Command]
-  //  }
+//    SetOption(ProduceModels(true)) #::
+//      SetLogic(QF_UF()) #::
+//      //declareVariables(formula).toStream #::// declareVariables(formula).toStream #::: // dont do this stuff just convert the conditions to commands and it will read those
+//      Assert(formula) #::
+//      CheckSat() #::
+//      //    GetModel() #::
+//      Stream.empty[Command]
+//  }
 
 
   def processInput(commandStream : Stream[Command]): OutputStream => Unit = {
@@ -1679,29 +1669,29 @@ class STSolverZ3 {
     }
 
 
-    //    val process = Process(z3_path, Seq("-smt2", "-in"))
-    //    var result: String = null
-    //    val processIO = new ProcessIO(
-    //      outputStream,
-    //      stdout => {
-    //        val reader = new BufferedReader(new InputStreamReader(stdout))
-    //        result = reader.readLine()
-    //      },
-    //      stderr => {
-    //        scala.io.Source.fromInputStream(stderr)
-    //          .getLines.foreach(println)
-    //      }
-    //    )
-    //    val handle = process.run(processIO)
-    //    assert(handle.exitValue() == 0)
-    //    assert(result == "sat" || result == "unsat")
-    //    if (result == "sat") {
-    //      println("\nSAT ~~~~~~~~~~~~~~~~~~~\n") // Some(Map())
-    //      true
-    //    } else {
-    //      println("\nUNSAT ~~~~~~~~~~~~~~~~~~\n") // None
-    //      false
-    //    }
+//    val process = Process(z3_path, Seq("-smt2", "-in"))
+//    var result: String = null
+//    val processIO = new ProcessIO(
+//      outputStream,
+//      stdout => {
+//        val reader = new BufferedReader(new InputStreamReader(stdout))
+//        result = reader.readLine()
+//      },
+//      stderr => {
+//        scala.io.Source.fromInputStream(stderr)
+//          .getLines.foreach(println)
+//      }
+//    )
+//    val handle = process.run(processIO)
+//    assert(handle.exitValue() == 0)
+//    assert(result == "sat" || result == "unsat")
+//    if (result == "sat") {
+//      println("\nSAT ~~~~~~~~~~~~~~~~~~~\n") // Some(Map())
+//      true
+//    } else {
+//      println("\nUNSAT ~~~~~~~~~~~~~~~~~~\n") // None
+//      false
+//    }
 
 
     //null
@@ -1716,6 +1706,5 @@ class STSolverZ3 {
       null
     }
   }
-
 
 }

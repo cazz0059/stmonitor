@@ -32,3 +32,21 @@ def checkString(s : String) : Boolean = {
     }
     s_temp.trim().isEmpty
   }
+
+
+
+Term.If(
+    Term.Name("check"),
+    Term.Assign(Term.Name("i"), Lit.Int(1)),
+    Term.Assign(Term.Name("i"), Lit.Int(2))
+)
+
+Term.If(
+    Term.ApplyInfix(Term.Name("check"), Term.Name("=="), Nil, List(Lit.Int(1))),
+    Term.Assign(Term.Name("i"), Lit.Int(1)),
+    Term.If(
+        Term.ApplyInfix(Term.Name("check"), Term.Name("=="), Nil, List(Lit.Int(2))),
+        Term.Assign(Term.Name("i"), Lit.Int(2)),
+        Term.Assign(Term.Name("i"), Lit.Int(3))
+    )
+)
