@@ -94,6 +94,12 @@ class STSolverZ3 {
     funcVars
   }
 
+  def removeFuncVars(funcVars : Variables, variable : String) : Variables = {
+    var funcVarsTemp = funcVars
+    funcVarsTemp.vars = funcVarsTemp.vars - variable
+    funcVarsTemp
+  }
+
   private val ctx: Context = new Context(new java.util.HashMap[String, String])
 
   // find way to eliminate conditions that have nothing to do with the unsatisfiability - saveUnsatConds()
@@ -215,8 +221,29 @@ class STSolverZ3 {
 //      else null
 //    }
 
-    def getFuncVars(funcVars : Variables, name : String, typ : Int) : Expr[_] = {
-      funcVars.vars(name)._1
+    def getFuncVars(funcVars : Variables, name : String) : (Expr[_], Int) = { // , typ : Int
+
+      // check keysets
+      // first check when no number
+      // then see current count, and go down from there, until variable found
+
+      val keyset = funcVars.vars.keySet
+
+      if(keyset.contains(name))
+        funcVars.vars(name)
+
+      else {
+        var tempCount = count
+        while(tempCount >= 0) {
+          val currName = name + "_" + tempCount
+          if (keyset.contains(currName))
+            return funcVars.vars(currName)
+          tempCount = tempCount - 1
+        }
+        println("Value does not exist in function variables")
+        null
+      }
+
 //      if (typ == integer) {
 //        funcVars.integers(name)
 //      }
@@ -227,6 +254,7 @@ class STSolverZ3 {
 //        funcVars.strings(name)
 //      }
 //      else null
+
     }
 
 //    def getLengthVars(vars : Variables) : Int = {
@@ -621,9 +649,10 @@ class STSolverZ3 {
         }
         else {
           print("Func vars : " + funcVars)
-          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name)._2 == boolean) { // .integers
+          val boolVar = getFuncVars(funcVars, name)
+          if (boolVar != null && boolVar._2 == boolean) { // .integers // funcVars.vars.keySet.contains(name) && funcVars.vars(name)._2 == boolean
             println("Keyset : " + funcVars.vars.keySet)
-            funcVars.vars(name).asInstanceOf[BoolExpr]
+            boolVar._1.asInstanceOf[BoolExpr]//funcVars.vars(name).asInstanceOf[BoolExpr]
           } else {
             null
           }
@@ -661,9 +690,10 @@ class STSolverZ3 {
           }
         }
         else { // only come here is called from util function
-          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name)._2 == integer) { // .integers
+          val intVar = getFuncVars(funcVars, name)
+          if (intVar != null && intVar._2 == integer) { // .integers
             println("Keyset : " + funcVars.vars.keySet)
-            funcVars.vars(name).asInstanceOf[IntExpr]
+            intVar._1.asInstanceOf[IntExpr]
           } else {
             null
           }
@@ -694,9 +724,10 @@ class STSolverZ3 {
           }
         }
         else {
-          if (funcVars.vars.keySet.contains(name) && funcVars.vars(name)._2 == string) { // .integers
+          val stringVar = getFuncVars(funcVars, name)
+          if (stringVar != null && stringVar._2 == string) { // .integers
             println("Keyset : " + funcVars.vars.keySet)
-            funcVars.vars(name).asInstanceOf[Expr[SeqSort[BitVecSort]]]
+            stringVar._1.asInstanceOf[Expr[SeqSort[BitVecSort]]]
           } else {
             null
           }
@@ -927,7 +958,20 @@ class STSolverZ3 {
     }
     ///-----------------------------------
 
-    def traverseStat(stat : Stat, fVars : Variables) : Unit = {
+
+    // ALL STATEMENTS HERE ARE BASIC, limitations include:
+    //   no arrays ADD ARRAYS
+    //   no scala functions
+    //   make something that if it cant parse it just return unknown
+    //   dont break the whole system if the util function cannot be parsed
+    //   so still parse the util functions in the beginning, just skip branches that have util functions because we dont know how to parse them
+    //   dont parse util functions in the beginning (while loop needs previous conditions), just parse when accessed.
+
+    // REASONS WHY NOT OPTIMISED
+    // doe snot support recursion
+    // integers cannot be interpreted as range
+    // while loops need previous conditions, or else almost always sat
+    def traverseStat(stat : Stat, fVars : Variables) : Variables = {
       var funcVars = fVars
       stat match{
         case bool @ Lit.Boolean(value) =>
@@ -935,7 +979,7 @@ class STSolverZ3 {
           solver.add(getBoolExpr(bool, null)) // utilSolver(name) // funcVars is null wont make a difference because its just a boolean literal
         case Defn.Val(mods, List(Pat.Var(Term.Name(name))), decltpe, rhs) =>
           println("Getting val")
-          val (getRHS, typTemp)  = getExpr(rhs, funcVars)
+          val (getRHS, typTemp) = getExpr(rhs, funcVars)
           //val getRHS : Sort = getRHSTemp.getSort.asInstanceOf[Sort] // : Sort
           println("Val Expression : " + getRHS)
           // fix this
@@ -947,7 +991,15 @@ class STSolverZ3 {
           // the assertions of the rhs are already being asserted with the context, maybe this should be changed so its just an assignment rather than an assertion
           //context.mkConst(name, getRHS)
           funcVars = addFuncVars(funcVars, typTemp, name) // adding the variable to the list (not the rhs, just the name and a const with it)
-          ctx.mkEq(getFuncVars(funcVars, name, typTemp), getRHS) // "assigning" the rhs to the created (above) constant
+          ctx.mkEq(getFuncVars(funcVars, name)._1, getRHS) // "assigning" the rhs to the created (above) constant
+
+          // handle arrays
+          // support only array declaration and element access for now
+          // change term.name functions to access array elements
+          // make variables
+          // hold on a minute the solver cant accept constant assignments
+          // nvm, just call Defn.Var on each position
+
           pause()
         case Defn.Var(mods, List(Pat.Var(Term.Name(name))), decltpe, rhs) =>
           val (getRHS, typTemp)  = getExpr(rhs.get, funcVars)
@@ -955,50 +1007,82 @@ class STSolverZ3 {
           println("Var Expression : " + getRHS)
           //context.mkConst(name, getRHS)
           funcVars = addFuncVars(funcVars, typTemp, name)
-          ctx.mkEq(getFuncVars(funcVars, name, typTemp), getRHS)
+          ctx.mkEq(getFuncVars(funcVars, name)._1, getRHS)
           pause()
         case Term.Assign(Term.Name(lhsName), rhs) =>
+          // RESTRICT NAMING CONDITIONS TO AS MUCH AS POSSIBLE NOT USE "_n"
+
           // only func vars can be changed
           // just change the name of the fuc vars
           // give them numbers for every assignment
           //var lhsExpr = getExpr(lhs, funcVars)
-          val lhsExpr = funcVars.vars(lhsName)
-          addFuncVars(funcVars, lhsExpr._2, lhsName + "_" + count); incCount()
+          println("previous keyset " + funcVars.vars.keySet)
+          val lhsExpr = getFuncVars(funcVars, lhsName)
+          val lhsNewName = lhsName + "_" + count; incCount()
+          funcVars = addFuncVars(funcVars, lhsExpr._2, lhsNewName)
           val rhsExpr = getExpr(rhs, funcVars)._1
           // assert equals
-          ctx.mkEq(lhsExpr._1, rhsExpr)
+          ctx.mkEq(getFuncVars(funcVars, lhsNewName)._1, rhsExpr)
           // change name
+          funcVars = removeFuncVars(funcVars, lhsName)
+          println("current keyset " + funcVars.vars.keySet)
 
         case infix @ Term.ApplyInfix(lhs, op, targs, args) =>
           solver.add(getBoolExpr(infix, funcVars))
           pause()
-        case Term.While(expr, body) =>
+        case Term.While(cond, body @ Term.Block(stats)) =>
           println("Body ###")
           println(body.toString())
           // must unroll, no blocks and pushes and pops
           // must change all the decls (as per example)
-          var count = 0
-        //{
-          var funcVarsTemp: Variables = new Variables()
-          for (funcVar <- funcVars.vars) { // new set of variables
-            val funcVarNameTemp = funcVar._1 + "_" + count
-            val funcVarValTemp = funcVar._2
-            funcVarsTemp.vars = funcVarsTemp.vars + (funcVarNameTemp -> funcVarValTemp)
-            count = count + 1
+//          var count = 0
+//        //{
+//          var funcVarsTemp: Variables = new Variables()
+//          for (funcVar <- funcVars.vars) { // new set of variables
+//            val funcVarNameTemp = funcVar._1 + "_" + count
+//            val funcVarValTemp = funcVar._2
+//            funcVarsTemp.vars = funcVarsTemp.vars + (funcVarNameTemp -> funcVarValTemp)
+//            count = count + 1
+//          }
+//          var loopCond = getBoolExpr(expr, funcVars)
+//          body match {
+//            case Term.Block(stats) =>
+//              var block : ListBuffer[Expr[_]] = ListBuffer()
+//              for(bodyStat <- stats) {
+//                //block = block + traverseStat(bodyStat, funcVarsTemp)
+//              }
+//          }
+//
+
+          //New Method
+          // parse condition in a push by itself
+          // if unsat, skip loop
+          // if sat, traverse body (assignments already handled in assignment phrase)
+          // parse condition again in a push by itself
+          // check sat now
+          // repeat if sat (parse body and condition again)
+          // if unsat, pop and continue as usual
+          solver.push()
+          getBoolExpr(cond, funcVars)
+          while(solver.check() == Status.SATISFIABLE) { // this never stops
+            println("It is sat")
+            solver.pop()
+            for(stat <- stats){
+              funcVars = traverseStat(stat, funcVars)
+            }
+            println("keyset now " + funcVars.vars.keySet)
+            pause()
+            solver.push()
+            getBoolExpr(cond, funcVars)
+            println("Checking sat....")
           }
-          var loopCond = getBoolExpr(expr, funcVars)
-          body match {
-            case Term.Block(stats) =>
-              var block : ListBuffer[Expr[_]] = ListBuffer()
-              for(bodyStat <- stats) {
-                //block = block + traverseStat(bodyStat, funcVarsTemp)
-              }
-          }
+          solver.pop()
+
           // NEXT STEP
           // parse stats as normal (fix error above)
           // when assignment make sure to refer to previous variables (funcvars_n-1) in rhs, and lhs is new funcvars_n
           // dats the only thing i need to consider differently in the stats parsing, everything else remains unchagnged?
-          // wait no after assignemnt, change the default funcvar used from _n-1 to _n so that the updated assignment is use dby default
+          // wait no after assignment, change the default funcvar used from _n-1 to _n so that the updated assignment is use dby default
 
           // should i only do it for simple loops only?
 
@@ -1014,8 +1098,8 @@ class STSolverZ3 {
           // the no of repetitions is known already so the no of reps is known
           // do it like function
 
-          var bodyExpr = getExpr(body, funcVars)
-          ctx.mkImplies(loopCond, bodyExpr._1.asInstanceOf[Expr[BoolSort]])
+//          var bodyExpr = getExpr(body, funcVars)
+//          ctx.mkImplies(loopCond, bodyExpr._1.asInstanceOf[Expr[BoolSort]])
 //            var block : ListBuffer[Expr[_]] = ListBuffer()
 //            for(bodyStat <- body) {
 //              block = block ++ traverseStat(bodyStat, )
@@ -1028,11 +1112,32 @@ class STSolverZ3 {
         // do block
         // assert condition with true
         // solve at this state? skip next loop when unsat
-        case Term.For(enums, body) =>
-          println(enums)
-          for(enum <- enums) {
-            println(enum)
+
+        case Term.Do(Term.Block(stats), cond) =>
+          for(stat <- stats){
+            funcVars = traverseStat(stat, funcVars)
           }
+          solver.push()
+          getBoolExpr(cond, funcVars)
+          while(solver.check() == Status.SATISFIABLE) { // this never stops
+            println("It is sat")
+            solver.pop()
+            for(stat <- stats){
+              funcVars = traverseStat(stat, funcVars)
+            }
+            println("keyset now " + funcVars.vars.keySet)
+            pause()
+            solver.push()
+            getBoolExpr(cond, funcVars)
+            println("Checking sat....")
+          }
+          solver.pop()
+//        case Term.For(enums, body) =>
+//          println(enums)
+//          for(enum <- enums) {
+//            println(enum)
+//          }
+          // cant take array variables i guess
         case Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) => // only called by util
           // this is function call within util function
           // adds all interpretations as a list of assertions in the solver of the function
@@ -1054,6 +1159,7 @@ class STSolverZ3 {
           pause()
 
       }
+      funcVars
     }
 
 //    def getTermNames(expr : Term) : List[String] = {
