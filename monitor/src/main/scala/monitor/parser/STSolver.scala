@@ -35,6 +35,11 @@ class STSolver(sessionType : SessionType, path: String){
 
   private var solvedST : SessionType = new SessionType(null, null)
 
+  def pause() : Unit = {
+    print("Pausing...")
+    scala.io.StdIn.readLine()
+  }
+
   //private var branches = new mutable.HashMap[Statement, String]()
 
   def getRecursiveVarScope(recursiveVar: RecursiveVar): Scope = {
@@ -588,7 +593,7 @@ class STSolver(sessionType : SessionType, path: String){
 
       // user input for now
 //      println("Is this SAT?")
-      val ans = scala.io.StdIn.readLine()
+      pause()
       if (sat) true
       else false
 

@@ -6,7 +6,7 @@ C_smtp = ?TwoTwoZero(option : Int)[(option == 1) || (option == 2)].rec X1.(
                  +{
                      !Subject(subject : String)[choice == 3].Z3,
                      !Dataline(dataline : String)[choice == 4].Z3,
-                     !atad(dot : String)[(choice == 5) && (dot == 6)].Z1
+                     !atad(dot : Int)[(choice == 5) && (dot == 6)].Z1
                  }
              )
         )

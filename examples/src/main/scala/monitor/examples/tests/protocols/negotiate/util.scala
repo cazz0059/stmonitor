@@ -1,4 +1,4 @@
-//package monitor.examples.tests.protocols.negotiate
+package monitor.examples.tests.protocols.negotiate
 
 object util {
   def validate(x : Int, check : Boolean): Boolean ={

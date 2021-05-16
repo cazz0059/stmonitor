@@ -1,0 +1,1 @@
+<S_first><receive_First><types>x : Int</types><conditions assertions="x &gt; 10"/><continuation><selection_InternalChoice1><choice><send_Third><types>z : Int</types></send_Third></choice></selection_InternalChoice1></continuation></receive_First></S_first>

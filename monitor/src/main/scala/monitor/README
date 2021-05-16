@@ -4,4 +4,8 @@
 // xmlstarlet el -u S_arithmetic_solved_parseTree.xml|awk -F'/' 'BEGIN{print "digraph{"}{print $(NF-1)" -> "$NF}END{print"}"}'|dot -Tpng -o xml4.png
 // xmlstarlet el -a S_arithmetic_solved_parseTree.xml|awk -F'/' 'BEGIN{print "digraph{"}{print $(NF-1)" -> "$NF}END{print"}"}'|dot -Tpng -o xml4.png
 // xmlstarlet el -v S_arithmetic_solved_parseTree.xml|awk -F'/' 'BEGIN{print "digraph{"}{print $(NF-1)" -> "$NF}END{print"}"}'|dot -Tpng -o xml4.png
+// xmlstarlet el -v C_smtp_solved_parseTree.xml|awk -F'/' 'BEGIN{print "digraph{"}{print $(NF-1)" -> "$NF}END{print"}"}'|dot -Tpng -o smtpSolved.png
+xmlstarlet el -u C_smtp_solved_parseTree.xml | xpath2dot.awk | dot -T png > smtpSolved.png
+sudo xmlstarlet el -u ~/Desktop/stmonitor/stmonitor/examples/src/main/scala/monitor/examples/parseTrees/C_smtp_solved_parseTree.xml | ~/Desktop/stmonitor/stmonitor/examples/src/main/scala/monitor/examples/parseTrees/xpath2dot.awk | dot -T png > smtpSolved.png
+
 // last two not working when attributes instead of elements

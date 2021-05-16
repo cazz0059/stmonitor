@@ -1,8 +1,9 @@
 package monitor.parser
 
 import smtlib.trees.Commands._
+
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.collection.SortedMap
 
 import com.microsoft.z3._
 
@@ -13,6 +14,7 @@ import java.io._
 //import scala.tools.reflect.ToolBox
 
 import scala.meta._
+import scala.language.existentials
 
 //import scala.sys.process._
 
@@ -65,25 +67,31 @@ class STSolverZ3 {
     }
   }
 
-  def addParams(utilPms : SortedMap[String, (Expr[_], Int)], typ : Int, variable : String) : SortedMap[String, (Expr[_], Int)] = { // name : String,
+  def addParams(utilPms : mutable.LinkedHashMap[String, (Expr[_], Int)], typ : Int, variable : String) : mutable.LinkedHashMap[String, (Expr[_], Int)] = { // name : String,
     var utilParams = utilPms
+    //println("Adding params ; " + utilPms.toString())
     if(typ == integer) {
-      println("Adding " + variable + " integer")
+      //println("Adding " + variable + " integer")
       //val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap(variable -> (ctx.mkIntConst(variable), typ))
       val newParam : (String, (Expr[_], Int)) = (variable -> (ctx.mkIntConst(variable), typ))
+      //println("New params ; " + newParam)
       //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
-      utilParams + newParam// .integers = utilParams(name).integers + (variable -> ctx.mkIntConst(variable))
+      utilParams += newParam// .integers = utilParams(name).integers + (variable -> ctx.mkIntConst(variable))
     }
     else if(typ == boolean) {
+      //println("Adding " + variable + " boolean")
       val newParam : (String, (Expr[_], Int)) = (variable -> (ctx.mkBoolConst(variable), typ))
+      //println("New params ; " + newParam)
       //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
-      utilParams + newParam // (name -> newParams)
+      utilParams += newParam // (name -> newParams)
     }
     else if(typ == string) {
+      //println("Adding " + variable + " string")
       val newParam : (String, (Expr[_], Int)) = (variable -> (ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()), typ))
+      //println("New params ; " + newParam)
       //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
       //utilParams = utilParams + (utilParams(name) ++ (variable -> ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort())))
-      utilParams + newParam //(name -> newParams)
+      utilParams += newParam //(name -> newParams)
     }
     else
       null
@@ -220,11 +228,14 @@ class STSolverZ3 {
       case unary @ Term.ApplyUnary(o, a) => traverseBoolUnary(unary, funcVars)
 
       case funcCall @ Term.Apply(fun, args) =>
-        traverseFuncBool(funcCall, funcVars)
+        var funcBool = traverseFuncBool(funcCall, funcVars)
+        if(funcBool == null) solvable = false
+        funcBool
       //null
 
       case _ =>
         //println("TERM TYPE MISMATCH : BoolExpr")
+        solvable = false
         null
     }
 
@@ -255,14 +266,16 @@ class STSolverZ3 {
         arithExpr
 
       case _ =>
-        println("TERM TYPE MISMATCH : IntExpr")
+        //println("TERM TYPE MISMATCH : IntExpr")
+        solvable = false
         null
     }
 
     def getArithExpr(arg : Term, funcVars : Variables) : ArithExpr[_] = arg match {
       case Term.ApplyInfix(a, b, c, d) => traverseArithInfix(Term.ApplyInfix(a, b, c, d), funcVars)
       case _ =>
-        println("TERM TYPE MISMATCH : ArithExpr")
+        //println("TERM TYPE MISMATCH : ArithExpr")
+        solvable = false
         null
     }
 
@@ -272,7 +285,8 @@ class STSolverZ3 {
         val stringVal : Expr[SeqSort[BitVecSort]] = ctx.mkString(value)
         stringVal
       case _ =>
-        println("TERM TYPE MISMATCH : StringExpr")
+        //println("TERM TYPE MISMATCH : StringExpr")
+        solvable = false
         null
     }
 
@@ -285,6 +299,7 @@ class STSolverZ3 {
         expr = getIntExpr(arg, funcVars)
         typ = integer
       }
+      //println("hello from expr, after int")
       //      if (expr == null) {
       //        println("Getting arith infix expression...")
       //        expr = getArithExpr(arg, context, funcVars)
@@ -294,11 +309,14 @@ class STSolverZ3 {
         expr = getStringExpr(arg, funcVars)
         typ = string
       }
+      //println("hello from expr, after string")
       if (expr == null) {
-        println("ERROR : EXPR NOT FOUND")
-        return null
+        println("ERROR : EXPR NOT FOUND, Solvable? " + solvable)
+        //solvable = false
+        return (null, -1)
       }
       //println("Expression retrieved")
+      solvable = true
       (expr, typ)
     }
 
@@ -314,11 +332,11 @@ class STSolverZ3 {
     def traverseBoolVar(term : Term.Name, funcVars : Variables) : BoolExpr = term match {
       // probably is a singular boolean variable, as in any other case it would form part of a formula
       case Term.Name(name) =>
-        println("Term bool name " + name + " ##")
+        //println("Term bool name " + name + " ##")
         if(global || isFromCond) {
           if (variables.vars.keySet.contains(name) && variables.vars(name)._2 == boolean) { // .integers // isInstanceOf[BoolExpr]
             //println("Keyset : " + variables.vars.keySet)
-            variables.vars(name).asInstanceOf[BoolExpr]
+            variables.vars(name)._1.asInstanceOf[BoolExpr]
           } else { // search also in parameters and in decls within function
             // see how to differentiate between all the variables' names if they are the same and all
             null
@@ -355,14 +373,16 @@ class STSolverZ3 {
     def traverseIntVar(term : Term.Name, funcVars : Variables) : IntExpr = term match {
       // probably is a singular boolean variable, as in any other case it would form part of a formula
       case Term.Name(name) =>
-        println("Term int name " + name + " ##")
+        //println("Term int name " + name + " ##")
 
         if(global || isFromCond) {
           if (variables.vars.keySet.contains(name) && variables.vars(name)._2 == integer) { // .integers
             //println("Keyset : " + variables.vars.keySet)
-            variables.vars(name).asInstanceOf[IntExpr]
+            variables.vars(name)._1.asInstanceOf[IntExpr]
           } else { // search also in parameters and in decls within function
             // see how to differentiate between all the variables' names if they are the same and all
+            //println("Global variables : " + variables.vars.toString())
+            //println("Variable " + name + " does not exist in global variables")
             null
           }
         }
@@ -372,6 +392,7 @@ class STSolverZ3 {
             //println("Keyset : " + funcVars.vars.keySet)
             intVar._1.asInstanceOf[IntExpr]
           } else {
+            //println("Variable " + name + " does not exist in function variables")
             null
           }
         }
@@ -391,10 +412,10 @@ class STSolverZ3 {
       // probably is a singular boolean variable, as in any other case it would form part of a formula
       case Term.Name(name) =>
         if(global || isFromCond) {
-          println("Term string name " + name + " ##")
+          //println("Term string name " + name + " ##")
           if (variables.vars.keySet.contains(name) && variables.vars(name)._2 == string) { // .integers
             //println("Keyset : " + variables.vars.keySet)
-            variables.vars(name).asInstanceOf[Expr[SeqSort[BitVecSort]]]
+            variables.vars(name)._1.asInstanceOf[Expr[SeqSort[BitVecSort]]]
           } else { // search also in parameters and in decls within function
             // see how to differentiate between all the variables' names if they are the same and all
             null
@@ -417,83 +438,98 @@ class STSolverZ3 {
 
     def traverseBoolInfix(term : Term.ApplyInfix, funcVars : Variables) : BoolExpr = term match {
       case Term.ApplyInfix(lhs, Term.Name("&&"), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " && " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " && " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
         var lhsBool = getBoolExpr(lhs, funcVars)
-        for (arg <- args) {
-          val rhsBool = getBoolExpr(arg, funcVars)
-          if (rhsBool != null)
-            lhsBool = ctx.mkAnd(lhsBool, rhsBool)
+        if(lhsBool != null) {
+          for (arg <- args) {
+            val rhsBool = getBoolExpr(arg, funcVars)
+            //println(lhsBool + " && " + rhsBool)
+            if (rhsBool != null)
+              lhsBool = ctx.mkAnd(lhsBool, rhsBool)
+          }
         }
         lhsBool
 
       case Term.ApplyInfix(lhs, Term.Name("||"), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " || " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " || " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
         var lhsBool = getBoolExpr(lhs, funcVars)
-        for (arg <- args) {
-          val rhsBool = getBoolExpr(arg, funcVars)
-          if (rhsBool != null)
-            lhsBool = ctx.mkOr(lhsBool, rhsBool)
+        if(lhsBool != null) {
+          for (arg <- args) {
+            val rhsBool = getBoolExpr(arg, funcVars)
+            if (rhsBool != null)
+              lhsBool = ctx.mkOr(lhsBool, rhsBool)
+          }
         }
         lhsBool
 
       case Term.ApplyInfix(lhs, Term.Name("<"), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " < " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " < " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
         val lhsInt = getIntExpr(lhs, funcVars)
         val rhsInt = getIntExpr(args.head, funcVars)
         //println("Checking lhs: " + lhsInt + " and rhs: " + rhsInt)
-        val lt = ctx.mkLt(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
+        var lt : BoolExpr = null
+        if((lhsInt != null) && (rhsInt != null))
+          lt = ctx.mkLt(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
         //println("Testing as instance of: " + lt)
         //pause()
         lt
 
       case Term.ApplyInfix(lhs, Term.Name(">"), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " > " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " > " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
         val lhsInt = getIntExpr(lhs, funcVars)
         val rhsInt = getIntExpr(args.head, funcVars)
         //println("Applying operator > ...")
-        val gt = ctx.mkGt(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
+        var gt : BoolExpr = null
+        if((lhsInt != null) && (rhsInt != null))
+          gt = ctx.mkGt(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
         //println("Testing as instance of: " + gt)
         //pause()
         gt
 
       case Term.ApplyInfix(lhs, Term.Name("<="), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " <= " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " <= " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
         val lhsInt = getIntExpr(lhs, funcVars)
         val rhsInt = getIntExpr(args.head, funcVars)
-        val lte = ctx.mkLe(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
+        var lte : BoolExpr = null
+        if((lhsInt != null) && (rhsInt != null))
+          lte = ctx.mkLe(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
         //println("Testing as instance of: " + lte)
         //pause()
         lte
 
       case Term.ApplyInfix(lhs, Term.Name(">="), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " >= " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " >= " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
+        //println("Funcvars : " + funcVars.vars.toString())
         val lhsInt = getIntExpr(lhs, funcVars)
         val rhsInt = getIntExpr(args.head, funcVars)
-        val gte = ctx.mkGe(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
+        //println("Applying infix... " + lhsInt + " and " + rhsInt)
+        var gte : BoolExpr = null
+        if((lhsInt != null) && (rhsInt != null))
+          gte = ctx.mkGe(lhsInt.asInstanceOf[Expr[ArithSort]], rhsInt.asInstanceOf[Expr[ArithSort]])
         //println("Testing as instance of: " + gte)
         //pause()
         gte
 
       case Term.ApplyInfix(arg, Term.Name("=="), tArgs, args) =>
-        println("Term apply infix " + arg.toString() + " == " + args.head.toString())
+        //println("Term apply infix " + arg.toString() + " == " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
@@ -506,10 +542,35 @@ class STSolverZ3 {
           lhs = getBoolExpr(args.head, funcVars)
           rhs = getBoolExpr(args.head, funcVars)
         }
-        val gte = ctx.mkEq(lhs, rhs)
+
+        var eq : BoolExpr = null
+        if((lhs != null) && (rhs != null))
+          eq = ctx.mkEq(lhs, rhs)
         //println("Testing as instance of: " + gte)
         //pause()
-        gte
+        eq
+
+      case Term.ApplyInfix(arg, Term.Name("!="), tArgs, args) =>
+        //println("Term apply infix " + arg.toString() + " != " + args.head.toString())
+        if(args.length > 1)
+          println("Note: There are more args in this infix")
+
+        var lhs : Expr[_] = getIntExpr(arg, funcVars)
+        var rhs : Expr[_] = null
+        if(lhs != null) {
+          rhs = getIntExpr(args.head, funcVars)
+        }
+        else {
+          lhs = getBoolExpr(args.head, funcVars)
+          rhs = getBoolExpr(args.head, funcVars)
+        }
+
+        var neq : BoolExpr = null
+        if((lhs != null) && (rhs != null))
+          neq = ctx.mkNot(ctx.mkEq(lhs, rhs))
+        //println("Testing as instance of: " + gte)
+        //pause()
+        neq
 
       case _ =>
         null
@@ -518,7 +579,7 @@ class STSolverZ3 {
     def traverseArithInfix(term : Term.ApplyInfix, funcVars : Variables) : ArithExpr[_] = term match {
       case Term.ApplyInfix(lhs, Term.Name("+"), tArgs, args) =>
         // has to be recursive over the term names
-        println("Term apply infix " + lhs.toString() + " + " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " + " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
@@ -527,47 +588,48 @@ class STSolverZ3 {
           //println("Arg : "  + arg)
           // checking if there is a function call (that returns a boolean)
           val rhsInt = getIntExpr(arg, funcVars)
-          if (rhsInt != null)
+          if ((lhsInt != null) && (rhsInt != null))
             lhsInt = ctx.mkAdd(lhsInt, rhsInt)
         }
         //println("Infix applied")
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("-"), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " - " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " - " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
         var lhsInt : ArithExpr[_] = ctx.mkAdd(getIntExpr(lhs, funcVars))
         for (arg <- args) {
           val rhsInt = getIntExpr(arg, funcVars)
-          if (rhsInt != null)
+          if ((lhsInt != null) && (rhsInt != null))
             lhsInt = ctx.mkSub(lhsInt, rhsInt)
         }
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("*"), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " * " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " * " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
 
         var lhsInt : ArithExpr[_] = ctx.mkAdd(getIntExpr(lhs, funcVars))
         for (arg <- args) {
           val rhsInt = getIntExpr(arg, funcVars)
-          if (rhsInt != null)
+          if ((lhsInt != null) && (rhsInt != null))
             lhsInt = ctx.mkMul(lhsInt, rhsInt)
         }
         lhsInt
 
       case Term.ApplyInfix(lhs, Term.Name("/"), tArgs, args) =>
-        println("Term apply infix " + lhs.toString() + " / " + args.head.toString())
+        //println("Term apply infix " + lhs.toString() + " / " + args.head.toString())
         if(args.length > 1)
           println("Note: There are more args in this infix")
-
+        //println("Global : " + global + " | isFromCond : " + isFromCond)
         var lhsInt : ArithExpr[_] = ctx.mkAdd(getIntExpr(lhs, funcVars))
         for (arg <- args) {
           val rhsInt = getIntExpr(arg, funcVars)
-          if (rhsInt != null)
+          //println(lhsInt + " / " + rhsInt)
+          if ((lhsInt != null) && (rhsInt != null))
             lhsInt = ctx.mkDiv(lhsInt, rhsInt)
         }
         lhsInt
@@ -580,7 +642,10 @@ class STSolverZ3 {
       case Term.ApplyUnary(null, arg) =>
         getBoolExpr(arg, funcVars)
       case Term.ApplyUnary(op, arg) =>
-        ctx.mkNot(getBoolExpr(arg, funcVars))
+        val unExp = getBoolExpr(arg, funcVars)
+        if(unExp != null)
+          ctx.mkNot(unExp)
+        else null
       case _ =>
         null
     }
@@ -589,8 +654,11 @@ class STSolverZ3 {
       case Term.ApplyUnary(null, arg) =>
         getIntExpr(arg, funcVars)
       case Term.ApplyUnary(op, arg) =>
-        println("Term unary " + arg)
-        ctx.mkSub(null, getIntExpr(arg, funcVars)) // ctx.mkBVNeg(ctx.mkInt2BV(getIntExpr(arg)))
+        val unExp = getIntExpr(arg, funcVars)
+        if (unExp != null)
+          ctx.mkSub(getIntExpr(Lit.Int(0), funcVars), unExp)
+        else
+          null // ctx.mkBVNeg(ctx.mkInt2BV(getIntExpr(arg)))
       case _ =>
         null
     }
@@ -615,7 +683,7 @@ class STSolverZ3 {
         if (utilFuncs.keySet.contains(name)) {
           global = false
           isFromCond = true
-          val funcExpr = traverseBlock(name, args, funcVars)//, solver)
+          val funcExpr : BoolExpr = traverseBlock(name, args, funcVars)//, solver)
           global = true
           funcExpr
         }
@@ -635,6 +703,11 @@ class STSolverZ3 {
     // ALL STATEMENTS HERE ARE BASIC, limitations include:
     //   no arrays ADD ARRAYS
     //   no scala functions
+    //   no for loops
+    //   no if-then-else
+    //   variable naming conventions to avoid nondeterminism/reassignments/confusion in assertions
+    //       try and name variables in functions and params different from global as much as possible
+    //       if naming them the same make sure the parameters match the arguments and not get mixed up
     // make something that if it cant parse it just return unknown
     // dont break the whole system if the util function cannot be parsed
     // so still parse the util functions in the beginning, just skip branches that have util functions because we dont know how to parse them
@@ -649,17 +722,19 @@ class STSolverZ3 {
     // everytime this is called, solvable is chcked
     def traverseStat(stat : Stat, fVars : Variables) : (ListBuffer[BoolExpr], Variables) = {
       var funcVars = fVars
-      var expressions : ListBuffer[BoolExpr] = null
+      var expressions : ListBuffer[BoolExpr] = ListBuffer()
       stat match{
         case bool @ Lit.Boolean(value) =>
           // add assert statement
           // solver.add(getBoolExpr(bool, null)) // utilSolver(name) // funcVars is null wont make a difference because its just a boolean literal
-          expressions += getBoolExpr(bool, null)
+          var boolExpr = getBoolExpr(bool, null)
+          if(boolExpr != null) expressions += boolExpr // getBoolExpr(bool, null)
         case Defn.Val(mods, List(Pat.Var(Term.Name(name))), decltpe, rhs) =>
           //println("Getting val")
           val (getRHS, typTemp) = getExpr(rhs, funcVars)
+          if(!solvable) return (ListBuffer(), null)
           //val getRHS : Sort = getRHSTemp.getSort.asInstanceOf[Sort] // : Sort
-          println("Val Expression : " + getRHS)
+          //println("Val Expression : " + getRHS)
           // fix this
           // wait adding things to context doesnt change stuff
           // like adding multiple adds and not to the same expression
@@ -671,6 +746,7 @@ class STSolverZ3 {
           funcVars = addFuncVars(funcVars, typTemp, name) // adding the variable to the list (not the rhs, just the name and a const with it)
           expressions += ctx.mkEq(getFuncVars(funcVars, name)._1, getRHS) // "assigning" the rhs to the created (above) constant
 
+          //println("leaving value..")
           // handle arrays
           // support only array declaration and element access for now
           // change term.name functions to access array elements
@@ -680,9 +756,12 @@ class STSolverZ3 {
 
           //pause()
         case Defn.Var(mods, List(Pat.Var(Term.Name(name))), decltpe, rhs) =>
-          val (getRHS, typTemp)  = getExpr(rhs.get, funcVars)
+
+          val (getRHS, typTemp) = getExpr(rhs.get, funcVars)
+          //println("hello " + solvable)
+          if(!solvable) return (ListBuffer(), null)
           //val getRHS : Sort = getRHSTemp.getSort.asInstanceOf[Sort] // : Sort
-          println("Var Expression : " + getRHS)
+          //println("Var Expression : " + getRHS)
           //context.mkConst(name, getRHS)
           funcVars = addFuncVars(funcVars, typTemp, name)
           expressions += ctx.mkEq(getFuncVars(funcVars, name)._1, getRHS)
@@ -694,20 +773,25 @@ class STSolverZ3 {
           // just change the name of the fuc vars
           // give them numbers for every assignment
           //var lhsExpr = getExpr(lhs, funcVars)
-          println("previous keyset " + funcVars.vars.keySet)
+          //println("previous keyset " + funcVars.vars.keySet)
           val lhsExpr = getFuncVars(funcVars, lhsName)
+          val rhsExpr = getExpr(rhs, funcVars)._1
           val lhsNewName = lhsName + "_" + count; incCount()
           funcVars = addFuncVars(funcVars, lhsExpr._2, lhsNewName)
-          val rhsExpr = getExpr(rhs, funcVars)._1
+          if(!solvable) return (ListBuffer(), null)
           // assert equals
-          expressions += ctx.mkEq(getFuncVars(funcVars, lhsNewName)._1, rhsExpr)
+          val lhsNewExpr = getFuncVars(funcVars, lhsNewName)._1
+          //println("LHS: "  + lhsNewExpr)
+          //println("RHS: "  + rhsExpr)
+          expressions += ctx.mkEq(lhsNewExpr, rhsExpr)
           // change name
           funcVars = removeFuncVars(funcVars, lhsName)
-          println("current keyset " + funcVars.vars.keySet)
+          //println("current keyset " + funcVars.vars.keySet)
 
         case Term.ApplyInfix(lhs, op, targs, args) =>
           //solver.add(getBoolExpr(Term.ApplyInfix(lhs, op, targs, args), funcVars))
-          expressions += getBoolExpr(Term.ApplyInfix(lhs, op, targs, args), funcVars)
+          var boolExpr = getBoolExpr(Term.ApplyInfix(lhs, op, targs, args), funcVars)
+          if (boolExpr != null) expressions += boolExpr
           //pause()
         case Term.If(condTerm, ifBlock, elseBlock) =>
 //          solver.push()
@@ -772,15 +856,29 @@ class STSolverZ3 {
 
           // if if cond sat then add all if block
           // if at the end of the function or conditions it ends up being unsat, we have to check the else block
-          var n = 1
-//          val cond = getBoolExpr(condTerm, funcVars)
-//          var (ifExpr, funcVarsTempIf) = traverseStat(ifBlock, funcVars)
-//          var (elseExpr, funcVarsTempElse) = traverseStat(elseBlock, funcVars)
-//          //  OR the func vars
-//          expression = ctx.mkITE(cond, ifExpr, elseExpr)
+          //var n = 1
+          val cond : BoolExpr = getBoolExpr(condTerm, funcVars)
+          val (ifExpr, funcVarsTempIf) = traverseStat(ifBlock, funcVars)
+          val (elseExpr, funcVarsTempElse) = traverseStat(elseBlock, funcVars)
+          //  OR the func vars
+          // if the funcvars are the same size (cant have the same keyset because the counter changes)
+          if(funcVarsTempIf.vars.size == funcVarsTempElse.vars.size) // very buggy
+            expressions += ctx.mkITE(cond, aggregate(ifExpr), aggregate(elseExpr)).asInstanceOf[BoolExpr]
+          else {
+            println("DISCLAIMER")
+            println("The if block and else block have different assignments. This format is currently not supported. ")
+            println("Statement: " + stat)
+            // we cant assume it is satisfiable, we must consider the whole condition as satisfiable
+            println("Please make sure that both blocks modify the same variables the same amount of times. ")
+          }
+
 
           // consider just going through both funcvars and for each variables taht are different, get the last one for each and or them
           // doe snot guarantee unsat detected but better leave in an unsat than delete a sat accidentally
+
+          //if make limitation on if-else that the blocks have to have the same number of assignments for the same variables (very simple if-else blocks) then it is doable
+          // as the funcVars will be identical
+          // but blocks will change the stuff
 
         case Term.While(cond, Term.Block(stats)) =>
           //println("Body ###")
@@ -816,29 +914,48 @@ class STSolverZ3 {
           // if unsat, pop and continue as usual
           solver.push()
           solver.push()
+          var infCount = 0 // to avoid infinite loops
+          val max_loops = 100
           var current = getBoolExpr(cond, funcVars)
-          solver.add(current)
-          while(solver.check() == Status.SATISFIABLE) { // this never stops
-            println("It is sat")
-            solver.pop()
-            for(stat <- stats){
-              val (exprs, funcVars_temp) = traverseStat(stat, funcVars)
-              if(!solvable) return (null, null)
-              for (expr <- exprs) {
-                expressions += expr
-                solver.add(expr)
-              }
-              funcVars = funcVars_temp
-            }
-            println("keyset now " + funcVars.vars.keySet)
-            pause()
-            solver.push()
-            current = getBoolExpr(cond, funcVars)
+          if(current != null) {
             solver.add(current)
-            println("Checking sat....")
+            while (solver.check() == Status.SATISFIABLE && infCount < max_loops) { // this never stops
+              //println("Loop current state >>")
+              //println(traverser.getSolver.toString)
+              //println("It is sat")
+              expressions += current // adding assertion since it should be sat
+              solver.pop()
+              for (stat <- stats) {
+                val (exprs, funcVars_temp) = traverseStat(stat, funcVars)
+                if (!solvable) {
+                  solver.pop()
+                  return (ListBuffer(), null)
+                }
+                for (expr <- exprs) {
+                  expressions += expr
+                  solver.add(expr)
+                }
+                funcVars = funcVars_temp
+              }
+              //println("keyset now " + funcVars.vars.keySet)
+              //pause()
+              solver.push()
+              current = getBoolExpr(cond, funcVars)
+              solver.add(current)
+              //println("Checking sat....")
+              infCount += 1
+            }
           }
           solver.pop()
           solver.pop()
+          if(infCount == max_loops){
+            println("DISCLAIMER")
+            println("There is a limit to the number of iterations a loop can take. ")
+            println("Statement: " + stat)
+            // we cant assume it is satisfiable, we must consider the whole condition as satisfiable
+            println("If this limit is reached, it is assumed that the final iteration has negated the loop condition.")
+          }
+          expressions += ctx.mkNot(current) // adding final assignment negation since loop breaks so it obeys this
 
         // NEXT STEP
         // parse stats as normal (fix error above)
@@ -878,7 +995,7 @@ class STSolverZ3 {
         case Term.Do(Term.Block(stats), cond) =>
           for(stat <- stats){
             val (exprs1, funcVars_temp1) = traverseStat(stat, funcVars)
-            if(!solvable) return (null, null)
+            if(!solvable) return (ListBuffer(), null)
             for (expr1 <- exprs1) {
               expressions += expr1
               solver.add(expr1)
@@ -887,27 +1004,48 @@ class STSolverZ3 {
           }
           solver.push()
           solver.push()
-          getBoolExpr(cond, funcVars)
-          while(solver.check() == Status.SATISFIABLE) { // this never stops
-            //println("It is sat")
-            solver.pop()
-            for(stat <- stats){
-              val (exprs, funcVars_temp) = traverseStat(stat, funcVars)
-              if(!solvable) return (null, null)
-              for (expr <- exprs) {
-                expressions += expr
-                solver.add(expr)
+          var infCount = 0 // to avoid infinite loops
+          var current = getBoolExpr(cond, funcVars)
+          val max_loops = 100
+          if(current != null) {
+            solver.add(current)
+            while (solver.check() == Status.SATISFIABLE && infCount < max_loops) { // this never stops
+              //println("Loop current state >>")
+              //println(traverser.getSolver.toString)
+              //println("It is sat")
+              expressions += current // adding assertion since it should be sat
+              solver.pop()
+              for (stat <- stats) {
+                val (exprs, funcVars_temp) = traverseStat(stat, funcVars)
+                if (!solvable) {
+                  solver.pop()
+                  return (ListBuffer(), null)
+                }
+                for (expr <- exprs) {
+                  expressions += expr
+                  solver.add(expr)
+                }
+                funcVars = funcVars_temp
               }
-              funcVars = funcVars_temp
+              //println("keyset now " + funcVars.vars.keySet)
+              //pause()
+              solver.push()
+              current = getBoolExpr(cond, funcVars)
+              solver.add(current)
+              //println("Checking sat....")
+              infCount += 1
             }
-            //println("keyset now " + funcVars.vars.keySet)
-            pause()
-            solver.push()
-            getBoolExpr(cond, funcVars)
-            //println("Checking sat....")
           }
           solver.pop()
           solver.pop()
+          if(infCount == max_loops){
+            println("DISCLAIMER")
+            println("There is a limit to the number of iterations a loop can take. ")
+            println("Statement: " + stat)
+            // we cant assume it is satisfiable, we must consider the whole condition as satisfiable
+            println("If this limit is reached, it is assumed that the final iteration has negated the loop condition.")
+          }
+          expressions += ctx.mkNot(current)
         //        case Term.For(enums, body) =>
         //          println(enums)
         //          for(enum <- enums) {
@@ -917,14 +1055,14 @@ class STSolverZ3 {
         case Term.Block(stats) =>
           for (stat <- stats) {
             var (exprs, funcVarsTemp) = traverseStat(stat, funcVars)
-            if(!solvable) return (null, null)
+            if(!solvable) return (ListBuffer(), null)
             for (expr <- exprs) expressions += expr
           }
-        case Term.Apply(Term.Select(Term.Name("util"), Term.Name(name)), args) => // only called by util
-          println("Getting bool function call")
+        case Term.Apply(Term.Name(name), args) => // only called by util // Term.Select(Term.Name("util"),
+          //println("Getting bool function call")
           if (utilFuncs.keySet.contains(name)) {
             isFromCond = false
-            val funcExpr = traverseBlock(name, args, funcVars)//, solver)
+            val funcExpr : BoolExpr = traverseBlock(name, args, funcVars)//, solver)
             expressions += funcExpr
           }
           else {
@@ -949,7 +1087,8 @@ class STSolverZ3 {
 //          // RETURN EXPRESSIONS
         case _  =>
           println("DISCLAIMER")
-          println("The statement the applicationis trying to parse is currently unsupported.")
+          println("The statement the application is trying to parse is currently unsupported.")
+          println("Statement: " + stat)
           // we cant assume it is satisfiable, we must consider the whole condition as satisfiable
           println("By default, we will assume that this branch is satisfiable to avoid accidental satisfiable branch removal")
           pause()
@@ -991,17 +1130,17 @@ class STSolverZ3 {
       //var paramsExpr : ListBuffer[Expr[_]] = ListBuffer()
       // these will be irrelevent in the future when the function is being called
       // they will be rebuilt. these variables are only temporary until the model is retrieved
-      println("Traversing block ...")
+      //println("Traversing block ...")
       val (params, stats) = utilFuncs(funcName)
 
-      var utilParams : SortedMap[String, (Expr[_], Int)] = SortedMap()
+      var utilParams : mutable.LinkedHashMap[String, (Expr[_], Int)] = mutable.LinkedHashMap()
 
       // ADD FUNCTION TO UTIL PARAMS
       //val newFunc : SortedMap[String, (Expr[_], Int)] = SortedMap()
       //utilParams = utilParams + newFunc // (funcName -> newFunc)
 
       for (param <- params) {
-        println("Current param ... " + param.toString())
+        //println("Current param ... " + param.toString())
         param match {
           case Term.Param(mods, Term.Name(termName), Some(Type.Name(typ)), maybeTerm) =>
             if(typ == "String") {
@@ -1025,17 +1164,20 @@ class STSolverZ3 {
       var eqArgParam : ListBuffer[BoolExpr] = ListBuffer()
       if (args.length == utilParams.size) { // getLengthVars(utilParams(name)
         var counter = 0
+        //println("Params in question : " + utilParams.keySet)
+        //println("Args   in question : " + args)
         while (counter < args.length) {
           val arg = args(counter)
           //println("getting arg and param")
           val (argExpr, typTemp) = getExpr(arg, funcVars)
-          println("got arg " + argExpr.toString)
+          if(!solvable) return null
+          //println("got arg " + argExpr.toString)
           val param: Expr[_] = utilParams(utilParams.keys.toList(counter))._1 // getParam()
-          println("got param " + param.toString)
+          //println("got param " + param.toString)
           eqArgParam += ctx.mkEq(argExpr, param)
           //println("Parameter setting >> " + equality)
           counter += 1
-          pause()
+          //pause()
         }
       }
       else {
@@ -1043,7 +1185,7 @@ class STSolverZ3 {
       }
       /////
 
-      println("Parameters saved ...")
+      //println("Parameters saved ...")
       //utilParams = utilParams + (name -> paramsExpr.toList)
 
       var newFuncVars : Variables = new Variables() // parameters not included in funcVars
@@ -1057,15 +1199,19 @@ class STSolverZ3 {
       //assert that bool expr equal to the name of the function
       // then insert the function into the main equation
       //solver.push()
+      isFromCond = false
       var allExprsInBlock : ListBuffer[BoolExpr] = ListBuffer()
       for (stat <- stats) {
-        println("Current statement ... " + stat.toString())
+        //println("Current statement ... " + stat.toString())
         val (exprs, _) = traverseStat(stat, newFuncVars)
+//        println("expressions : " + exprs.toString())
+//        println("Solvable? " + solvable)
         if(!solvable) return null
         // we dont need push and pop and stuff. the variables used will be from the funcVars (need to make sure this is correct)
         // add to list
         for(expr <- exprs) allExprsInBlock += expr
       }
+
       var agg = aggregate(allExprsInBlock)
       for(eq <- eqArgParam) agg = ctx.mkAnd(eq, agg)
       // aggregate and return
@@ -1082,7 +1228,7 @@ class STSolverZ3 {
     def traverseDefns(defns : List[Stat]) : Unit = {
       // this could also include global variables in util file, should i include? Defn.Val
       for (defn <- defns) {
-        println("Traversing defn ...")
+        //println("Traversing defn ...")
         defn match {
           // dont replace the names of the parameters to the arguments, just add an assertion to make sure they are equal
           case Defn.Def(a, Term.Name(name), b, List(params), typ, Term.Block(stats)) => // handle params by saving them as variables
@@ -1107,7 +1253,7 @@ class STSolverZ3 {
       utilTree match{
         case Source(stats) =>
           global = false
-          println("Traversing util ...")
+          //println("Traversing util ...")
           for (stat <- stats) {
             stat match {
               case obj @ Defn.Object(mods, name, template) =>
@@ -1140,10 +1286,13 @@ class STSolverZ3 {
     def traverse(conditionTree : Term):Unit={
       global = true
       val conditionExpression = getBoolExpr(conditionTree, null)
-      if(solvable)
+      println("Condition expression : " + conditionExpression)
+      if(solvable && (conditionExpression != null))
         solver.add(conditionExpression)
-      else
+      else {
+        println("~~ The current condition is not solvable. We hence assume satisfiability to avoid accidental deletion")
         solver.add(getBoolExpr(Lit.Boolean(true), null)) // assuming satisfiable condition
+      }
     } // call to traverse normal
   }
 
@@ -1195,9 +1344,9 @@ class STSolverZ3 {
     // use case matching to traverse the created tree recursively
     // in each case write the corresponding smtlib format command
 
-    println("Variables")
-    println(vars)
-    pause()
+    //println("Variables")
+    //println(vars)
+    //pause()
 
     for (variable <- vars) {
       //      if (variable._2.contains("ean")) {
@@ -1221,7 +1370,7 @@ class STSolverZ3 {
     println(variables.vars)
     //    println(variables.booleans)
     //    println(variables.strings)
-    pause()
+    //pause()
 
     //    if (conditions.contains("util")) {
     //      //utilTree = toolbox.parse(util)
@@ -1298,36 +1447,36 @@ class STSolverZ3 {
 
   }
 
-  def convertConditionsToSMTLIB(smtlibConditions : String) : Stream[Command] = { // change conditions to list to separate conditions of different labels
-
-
-    // I CANT USE TERM
-
-    //var smtlibConditions = generateSMTLIBString(conditions, variables, util)
-    //println("``` SMTLIB COMMANDS ```")
-    //println(smtlibConditions)
-
-    val is = new java.io.StringReader(smtlibConditions)
-    val lexer = new smtlib.lexer.Lexer(is)
-    val parser = new smtlib.parser.Parser(lexer)
-
-    println("Reading script...")
-
-    val script: List[Command] = {
-      var cmds = new ListBuffer[Command]
-      var cmd : Command = parser.parseCommand //SetOption(ProduceModels(true))  //parser.parseCommand
-      print("Command: " + cmd)
-      while(cmd != null) {
-        cmds.append(cmd)
-        cmd = parser.parseCommand
-        print("Command: " + cmd)
-      }
-      cmds.toList
-    }
-
-    script.toStream
-
-  }
+//  def convertConditionsToSMTLIB(smtlibConditions : String) : Stream[Command] = { // change conditions to list to separate conditions of different labels
+//
+//
+//    // I CANT USE TERM
+//
+//    //var smtlibConditions = generateSMTLIBString(conditions, variables, util)
+//    //println("``` SMTLIB COMMANDS ```")
+//    //println(smtlibConditions)
+//
+//    val is = new java.io.StringReader(smtlibConditions)
+//    val lexer = new smtlib.lexer.Lexer(is)
+//    val parser = new smtlib.parser.Parser(lexer)
+//
+//    println("Reading script...")
+//
+//    val script: List[Command] = {
+//      var cmds = new ListBuffer[Command]
+//      var cmd : Command = parser.parseCommand //SetOption(ProduceModels(true))  //parser.parseCommand
+//      print("Command: " + cmd)
+//      while(cmd != null) {
+//        cmds.append(cmd)
+//        cmd = parser.parseCommand
+//        print("Command: " + cmd)
+//      }
+//      cmds.toList
+//    }
+//
+//    script.toStream
+//
+//  }
 
   //  def propositionalVariables(formula : Term) : Set[String] = formula match {
   //    case True() | False() => Set() // syntax for defining multiple cases at once
@@ -1383,17 +1532,17 @@ class STSolverZ3 {
   //  }
 
 
-  def processInput(commandStream : Stream[Command]): OutputStream => Unit = {
-    (stdin: OutputStream) => {
-      val printer = new PrintWriter(new BufferedOutputStream(stdin))
-      commandStream.foreach(
-        cmd => {
-          printer.write(cmd.toString())
-        }
-      )
-      printer.close()
-    }
-  }
+//  def processInput(commandStream : Stream[Command]): OutputStream => Unit = {
+//    (stdin: OutputStream) => {
+//      val printer = new PrintWriter(new BufferedOutputStream(stdin))
+//      commandStream.foreach(
+//        cmd => {
+//          printer.write(cmd.toString())
+//        }
+//      )
+//      printer.close()
+//    }
+//  }
 
   // used for conditions
   def checkUnsat() : Boolean = { // change this to accept formula
@@ -1416,7 +1565,7 @@ class STSolverZ3 {
     // in that case pass name and if util or normal related context and solvers
     println("Checking the following ->")
     println(traverser.getSolver.toString)
-    pause()
+    //pause()
     if(traverser.getSolver.check == Status.SATISFIABLE) {
       println("\nSAT ~~~~~~~~~~~~~~~~~~~\n")
       pause()

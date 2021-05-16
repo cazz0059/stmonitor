@@ -28,6 +28,9 @@ propose -> propose -> reject
 for all cases
 (what no, it can go to propose3)
 
+the args were i, check, and the params x, check,   but the function contains i declaration and so it was changed so that they dont clash
+leave it as is because i=x anyways
+
 
 S_negotiate = !Propose(proposal : String, i : Int)[i == 0].rec START.(
         &{

@@ -5,3 +5,47 @@ hence hitting two birds with one stone
 
 this doesnt count as repetition as the first branches are the same
 in addition, lemmas only save the redundant branch conditions
+
+object util {
+  def repeat(x : Int): Boolean ={
+    if (x < 5){
+      repeat(x+1)
+    }
+    else {
+      check(x)
+    }
+  }
+  def check(x : Int): Boolean ={
+    x == 5
+  }
+}
+
+def recur(x : Int): Boolean ={
+    if (x < 5){
+      recur(x+1)
+    }
+    else {
+      check(x)
+    }
+  }
+
+
+
+S_recur = +{
+    !Offer().&{
+        ?Option1(x : Int)[x < 5].+{
+            !Accept1()[util.noRecur(x)],
+            !Reject1()[!util.noRecur(x)]
+        },
+        ?Option2(x : Int)[x >= 5].+{
+            !Accept2()[util.noRecur(x)],
+            !Reject2()[!util.noRecur(x)]
+        }
+    }
+}
+
+
+Accept1 and Reject2 should be left
+
+what i can do is take the condition and its negation, assert the conditions to their respective blocks and be like "this or this"
+
