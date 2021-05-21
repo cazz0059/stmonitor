@@ -2,25 +2,34 @@ package monitor.examples.tests.protocols.recur
 
 object util {
 
-  def noRecur1(x : Int, n : Int) : Boolean = {
-    if((n > 0) && (x != 0)){
-      check(x, n)
-    }
-    else if ((n < 0) && (x != 0)){
-      check(x, -n)
-    }
-    else {
-      x >= 0// (n == 0) || (x == 0)
-    }
-  }
+//  def noRecur1(x : Int, n : Int) : Boolean = {
+//    if((n > 0) && (x != 0)){
+//      check(x, n)
+//    }
+//    else if ((n < 0) && (x != 0)){
+//      check(x, -n)
+//    }
+//    else {
+//      x >= 0// (n == 0) || (x == 0)
+//    }
+//  }
   
   def noRecur(x : Int, n : Int) : Boolean = {
-  	if(x >= 0){
-  		true
-  	}
-  	else {
-  		false
-  	}
+		if((n > 0) && (x != 0)){
+			 check(x, n) // x*n > 0
+		}
+		else if ((n < 0) && (x != 0)){
+			x*(-n) > 0 // check(x, -n)
+		}
+		else {
+			x >= 0 // (n == 0) || (x == 0)
+		}
+//  	if(x >= 0){
+//			true // x >= 0
+//  	}
+//  	else {
+//			false
+//  	}
   }
 
   def check(x1 : Int, n1 : Int): Boolean ={

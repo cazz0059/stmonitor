@@ -49,3 +49,35 @@ Accept1 and Reject2 should be left
 
 what i can do is take the condition and its negation, assert the conditions to their respective blocks and be like "this or this"
 
+(
+    assert (
+        let (
+            (
+                a!1 (
+                    and (
+                        and (
+                            > n 0
+                        ) (
+                            not (
+                                = x 0
+                            )
+                        )
+                    )
+                    (= n n1)
+                    (= x x1)
+                    (>
+                        (
+                            * (
+                                + x1
+                            ) n1
+                        ) 0
+                    )
+                )
+            )
+              (a!2 (not (and (> n 0) (not (= x 0)))))
+              (a!3 (and (and (< n 0) (not (= x 0))) (> (* (+ x) (- 0 n)) 0)))
+              (a!4 (not (and (< n 0) (not (= x 0))))))
+        (let ((a!5 (and a!2 (or a!3 (and a!4 (>= x 0))))))
+          (and (not (and (= n n) (= x x) (or a!1 a!5))) (>= x 0)))))
+
+

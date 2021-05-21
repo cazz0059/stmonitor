@@ -1,13 +1,13 @@
 package monitor.parser
 
-import smtlib.trees.Commands._
+//import smtlib.trees.Commands._
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 import com.microsoft.z3._
 
-import java.io._
+//import java.io._
 
 //import scala.reflect.runtime._
 //import scala.reflect.runtime.universe._
@@ -27,6 +27,8 @@ class STSolverZ3 {
   //  }
 
   //private val toolbox = currentMirror.mkToolBox()
+
+  // variables in traverser are reset each time, and globals arent?
 
   var solvable = true // turns to false when a function is unsolvable
 
@@ -117,6 +119,7 @@ class STSolverZ3 {
   }
 
 
+  private var assertions : Map[String, BoolExpr] = Map()
   // find way to eliminate conditions that have nothing to do with the unsatisfiability - saveUnsatConds()
   private var lemmas : List[String] = List() // SMT read this and see if it is the same semantics
   //private val cnfTransformer = new TransformToCnf()
@@ -126,7 +129,9 @@ class STSolverZ3 {
     scala.io.StdIn.readLine()
   }
 
-
+  def addAssertionLabel(label : String, assertion : BoolExpr) : Unit = {
+    assertions = assertions + (label -> assertion)
+  }
 
   def addLemma(aggConds : String): Unit = {
     lemmas = aggConds :: lemmas
@@ -206,6 +211,8 @@ class STSolverZ3 {
       count+=1
     }
 
+    private var temp_count = 0
+
     // these return all possible combinations of a desired type
     def getBoolExpr(arg : Term, funcVars : Variables) : BoolExpr = arg match {
       case Lit.Boolean(value) =>
@@ -215,7 +222,7 @@ class STSolverZ3 {
         var temp_and : BoolExpr = null
 
         if(!value) temp_and = ctx.mkAnd(temp_bool_const, ctx.mkNot(temp_bool_const))
-        else temp_and = temp_bool_const // why did i set it to null? because if it is itself it is always sat
+        else temp_and = ctx.mkAnd(temp_bool_const, temp_bool_const) // temp_bool_const // why did i set it to null? because if it is itself it is always sat
 
         temp_and
 
@@ -858,18 +865,29 @@ class STSolverZ3 {
           // if at the end of the function or conditions it ends up being unsat, we have to check the else block
           //var n = 1
           val cond : BoolExpr = getBoolExpr(condTerm, funcVars)
+          temp_count = count // saving count before if block
           val (ifExpr, funcVarsTempIf) = traverseStat(ifBlock, funcVars)
+          count = temp_count // resetting count to before if block
           val (elseExpr, funcVarsTempElse) = traverseStat(elseBlock, funcVars)
+          // now funcVars should be the same
           //  OR the func vars
           // if the funcvars are the same size (cant have the same keyset because the counter changes)
-          if(funcVarsTempIf.vars.size == funcVarsTempElse.vars.size) // very buggy
-            expressions += ctx.mkITE(cond, aggregate(ifExpr), aggregate(elseExpr)).asInstanceOf[BoolExpr]
+          if(funcVarsTempIf.vars.keySet == funcVarsTempElse.vars.keySet) { // very buggy
+            //expressions += ctx.mkITE(cond, aggregate(ifExpr), aggregate(elseExpr)).asInstanceOf[BoolExpr]
+            val ifFullExpr = ctx.mkAnd(cond, aggregate(ifExpr))
+            val elseFullExpr = ctx.mkAnd(ctx.mkNot(cond), aggregate(elseExpr))
+            val iteFullExpr = ctx.mkOr(ifFullExpr, elseFullExpr)
+            println("If statement : " + iteFullExpr)
+            expressions += iteFullExpr
+            funcVars = funcVarsTempElse // makes no difference which
+          }
           else {
             println("DISCLAIMER")
             println("The if block and else block have different assignments. This format is currently not supported. ")
             println("Statement: " + stat)
             // we cant assume it is satisfiable, we must consider the whole condition as satisfiable
             println("Please make sure that both blocks modify the same variables the same amount of times. ")
+            count = temp_count // nothing happened in if, so reset count to before if
           }
 
 
@@ -1283,15 +1301,18 @@ class STSolverZ3 {
 
     } // for getting util specifically
 
-    def traverse(conditionTree : Term):Unit={
+    def traverse(conditionTree : Term):BoolExpr={
       global = true
       val conditionExpression = getBoolExpr(conditionTree, null)
       println("Condition expression : " + conditionExpression)
-      if(solvable && (conditionExpression != null))
+      if(solvable && (conditionExpression != null)) {
         solver.add(conditionExpression)
-      else {
+        conditionExpression
+      } else {
         println("~~ The current condition is not solvable. We hence assume satisfiability to avoid accidental deletion")
-        solver.add(getBoolExpr(Lit.Boolean(true), null)) // assuming satisfiable condition
+        val litBool = getBoolExpr(Lit.Boolean(true), null)
+        solver.add(litBool) // assuming satisfiable condition
+        litBool
       }
     } // call to traverse normal
   }
@@ -1339,7 +1360,7 @@ class STSolverZ3 {
     pause()
   }
 
-  def generateFormulas(conditions : String, vars : Map[String, String]) : Unit = {
+  def generateFormulas(conditions : String, vars : Map[String, String]) : BoolExpr = {
     // use toolbox to parse through command
     // use case matching to traverse the created tree recursively
     // in each case write the corresponding smtlib format command
@@ -1416,10 +1437,12 @@ class STSolverZ3 {
 
     pause()
 
-    traverser.traverse(conditionTree)
+    val conditionExp = traverser.traverse(conditionTree)
 
     println("Traversed")
     pause()
+
+    conditionExp
 
     //    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString + "(check-sat)\n(get-model)"
 
@@ -1608,15 +1631,38 @@ class STSolverZ3 {
     //null
   }
 
-  // used for util
-  def checkSat() : Model  = {
-    if (traverser.getSolver.check == Status.SATISFIABLE){
-      traverser.getSolver.getModel
+  def solveAgg(conds : List[BoolExpr]) : Boolean = {
+    var condsBuffer : ListBuffer[BoolExpr] = ListBuffer()
+    for(cond <- conds) condsBuffer += cond
+    var aggConds = traverser.aggregate(condsBuffer)
+    traverser.getSolver.add(aggConds)
+
+    println("Checking the following (trace) ->")
+    println(traverser.getSolver.toString)
+    //pause()
+    if(traverser.getSolver.check == Status.SATISFIABLE) {
+      println("\nSAT ~~~~~~~~~~~~~~~~~~~\n")
+      pause()
+      traverser.clearSolver()
+      true
     }
     else {
-      null
+      println("\nUNSAT ~~~~~~~~~~~~~~~~~~~\n")
+      pause()
+      traverser.clearSolver()
+      false
     }
   }
+
+  // used for util
+//  def checkSat() : Model  = {
+//    if (traverser.getSolver.check == Status.SATISFIABLE){
+//      traverser.getSolver.getModel
+//    }
+//    else {
+//      null
+//    }
+//  }
 
 
 }

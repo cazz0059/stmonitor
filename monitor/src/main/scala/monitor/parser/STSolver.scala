@@ -7,8 +7,10 @@ import scala.tools.reflect.ToolBox
 import monitor.model._
 import monitor.model.Scope
 
+import com.microsoft.z3._
+
 //import smtlib.parser.ParserCommands
-import smtlib.parser.ParserTerms
+//import smtlib.parser.ParserTerms
 //import smtlib.theories.Core.{Not, Or}
 
 import scala.collection.mutable.ListBuffer
@@ -53,6 +55,19 @@ class STSolver(sessionType : SessionType, path: String){
   def getScope(scopeName: String): Scope = {
     scopes(scopeName)
   }
+
+  private var events : List[(String, BoolExpr)] = List()
+  def addEvent(label : String, boolExpr : BoolExpr) : Unit = {
+    events = (label, boolExpr) :: events
+  }
+  def getEvent(label : String) : BoolExpr = {
+    val event = events.filter(ev=>ev._1 == label)
+    if(event.size == 1)
+      return event.head._2
+    else
+      println("ERROR: labelled event not found"); null // cannot be accessed
+  }
+
 
   def run() : SessionType = {
 //    sessionType.statement match { // this part might all be useless
@@ -144,12 +159,12 @@ class STSolver(sessionType : SessionType, path: String){
         // check the satisfiability of the clauses
         // if redundant, move ot the next functions below
         checkCondition(label, types, condition)
-        val aggConds = scopes(curScope).assertions
+        val trace = scopes(curScope).trace
 
         // "rebuild parse tree" functions here
         //handleReceive(statement, statement.continuation)
-        println("Verdict : " + aggConds)
-        if(condition == null || solver(aggConds)) {
+        println("Verdict : " + scopes(curScope).getAssertions)
+        if(condition == null || solver(trace)) {
           ReceiveStatement(label, types, condition, walk(statement.continuation))
         }
         else {
@@ -162,9 +177,9 @@ class STSolver(sessionType : SessionType, path: String){
         println()
         curScope = label
         checkCondition(label, types, condition)
-        val aggConds = scopes(curScope).assertions
-        println("Verdict : " + aggConds)
-        if(condition == null || solver(aggConds)) {
+        val trace = scopes(curScope).trace
+        println("Verdict : " + scopes(curScope).getAssertions)
+        if(condition == null || solver(trace)) {
           SendStatement(label, types, condition, walk(statement.continuation))
         }
         else {
@@ -186,11 +201,11 @@ class STSolver(sessionType : SessionType, path: String){
           val currChoice = choice.asInstanceOf[ReceiveStatement]
           curScope = currChoice.label
           checkCondition(currChoice.label, currChoice.types, currChoice.condition)
-          val aggConds = scopes(curScope).assertions
+          val trace = scopes(curScope).trace
           //synthProtocol.handleReceive(choice.asInstanceOf[ReceiveStatement], choice.asInstanceOf[ReceiveStatement].continuation, statement.label)
 
-          println("Verdict : " + aggConds)
-          if (currChoice.condition == null || solver(aggConds)) {
+          println("Verdict : " + scopes(curScope).getAssertions)
+          if (currChoice.condition == null || solver(trace)) {
             //val solvedChoice : List[Statement] = List(walk(choice.asInstanceOf[ReceiveStatement].continuation))
             solvedChoices += ReceiveStatement(currChoice.label, currChoice.types, currChoice.condition, walk(currChoice.continuation))
             curScope = scopes(currChoice.label).parentScope.name
@@ -217,11 +232,11 @@ class STSolver(sessionType : SessionType, path: String){
           val currChoice = choice.asInstanceOf[SendStatement]
           curScope = currChoice.label
           checkCondition(currChoice.label, currChoice.types, currChoice.condition)
-          val aggConds = scopes(curScope).assertions
+          val trace = scopes(curScope).trace
 
           //synthProtocol.handleSend(choice.asInstanceOf[SendStatement], choice.asInstanceOf[SendStatement].continuation, statement.label)
-          println("Verdict : " + aggConds)
-          if (currChoice.condition == null || solver(aggConds)) {
+          println("Verdict : " + scopes(curScope).getAssertions)
+          if (currChoice.condition == null || solver(trace)) {
             solvedChoices += SendStatement(currChoice.label, currChoice.types, currChoice.condition, walk(currChoice.continuation))
             curScope = scopes(currChoice.label).parentScope.name
           }
@@ -424,29 +439,30 @@ class STSolver(sessionType : SessionType, path: String){
 
       println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
       println("Parent scope: " + scopes(curScope).parentScope.name)
-      println("Parent scope AggConds: " + scopes(curScope).parentScope.assertions)
+      println("Parent scope AggConds: " + scopes(curScope).parentScope.getAssertions)
 
       var tmpScope = curScope
       var aggConds = ""
 
-      solver.compareToLemmas("hello")
+      solver.compareToLemmas("hello") // why is this here?
 
       breakable {
         while (scopes(tmpScope).parentScope.name != "global") {
           tmpScope = scopes(tmpScope).parentScope.name
           println("TempScope: " + tmpScope)
-          if (scopes(tmpScope).assertions != List()) {
+          if (scopes(tmpScope).trace != List()) { // .assertions
             println(" # Adding to list")
-            println(scopes(tmpScope).assertions.toString())
-            scopes(curScope).assertions = condition :: scopes(tmpScope).assertions
+            println(label + " : " + condition)
+            println(scopes(tmpScope).trace.toString())
+            scopes(curScope).trace = (label, condition) :: scopes(tmpScope).trace
             //aggConds = helper.aggCondsToString(condition :: scopes(tmpScope).assertions)//"(" + scopes(tmpScope).assertions + ") && (" + condition + ")"
             break
           }
         }
         println(" # The only condition")
-        scopes(curScope).assertions = List(condition)
+        scopes(curScope).trace = List((label, condition))
       }
-      aggConds = helper.aggCondsToString(scopes(curScope).assertions)
+      aggConds = helper.aggCondsToString(scopes(curScope).getAssertions)
 
       //      if (scopes(tmpScope).parentScope.assertions == "") {
       //        scopes(curScope).assertions = condition
@@ -494,10 +510,16 @@ class STSolver(sessionType : SessionType, path: String){
 //
 //  }
 
-  def solver(aggConds : List[String]): Boolean ={
+  def solver(trace : List[(String, String)]): Boolean ={ // currentCond : String, traceLabels : List[String], aggConds : List[String]
     println(" ::::::::::::::::: SOLVER ::::::::::::::::::::")
 
-    if(aggConds != null) {
+    val traceLabels = trace.map(event=>event._1)
+    val currLabel = traceLabels.head
+    val aggConds = trace.map(event=>event._2)
+    val currCond = aggConds.head
+
+    if((traceLabels != null) && (aggConds != null)) {
+      println("\n ~ Trace >>>\n " ++ traceLabels.toString() ++ "\n<<<")
       println("\n ~ Conditions >>>\n " ++ aggConds.toString() ++ "\n<<<")
       // this is in the solver itself, no need
 //      val parsedConditions = toolbox.parse(conditions)
@@ -545,27 +567,41 @@ class STSolver(sessionType : SessionType, path: String){
       // its doable, since there r no declarations in the model
       // im going to test out functions and utilFuncs first, and then do that later, its easier this way coz im not sure the utilFuncs method even works
 
-      val currentCond = aggConds.head
+      //val currentCond = aggConds.head
       var unsatConds = ""
       println(" - Testing condition itself")
-      var sat = executeSolver(currentCond, variables)
+      var (boolExpr, sat) = executeSolver(currCond, variables)
+      addEvent(currLabel, boolExpr)
       println(" - Done")
       if(!sat) {
-        unsatConds = currentCond
+        unsatConds = currCond
+        // add to lemmas
       }
-      if(aggConds.length > 1) {
-        println("################# First cond satisfiable")
-        var tempAggConds = aggConds
-        var tempCurrCond = currentCond
+
+      var tempCurrEvent : List[(String, String)] = List() // trace.head
+
+      if(trace.length > 1) {
+        println("################# First cond checked")
+        var tempTrace = trace
         breakable {
-          while (sat) {
+          while(sat && (tempTrace.length > 1)) {
+            println("################# and satisfiable")
+            tempCurrEvent = tempTrace.head :: tempCurrEvent
+            println("tempCurrEvent : " + tempCurrEvent)
             println("################## Hence we proceed")
-            tempAggConds = tempAggConds.tail
-            for (aggCond <- tempAggConds) {
-              val aggCondsString = helper.aggCondsToString(currentCond :: List(aggCond))
+            tempTrace = tempTrace.tail
+            for (event <- tempTrace) { // for each event in the rest of the trace
+              val aggCondsString = helper.aggCondsToString(event._2 :: tempCurrEvent.map(ev=>ev._2)) // gets a string of conjunction of conditions
               println("##################### NOW TESTING CONDITIONS:")
-              println(aggCondsString)
-              sat = executeSolver(aggCondsString, variables)
+              println(aggCondsString) // wat was i thinking, this doesnt keep looping like i want it to
+              var listOfBoolExprs : List[BoolExpr] = List()
+
+              for(ev <- tempCurrEvent) {
+                println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
+                listOfBoolExprs = getEvent(ev._1) :: listOfBoolExprs
+              } // getting "first" current conditions
+              listOfBoolExprs = getEvent(event._1) :: listOfBoolExprs // getting the one from rest of trace
+              sat = executeSolverOnAgg(listOfBoolExprs)
               println("##################### Tested conditions")
               if (!sat) {
                 println("THIS BRANCH IS UNREACHABLE")
@@ -575,19 +611,56 @@ class STSolver(sessionType : SessionType, path: String){
                 // add to lemmas
               }
             }
-            if (tempAggConds.length > 1) {
-              tempCurrCond = helper.aggCondsToString(tempCurrCond :: List(tempAggConds.head))
-            }
-            else {
-              println("############ Have to stop since all conditions tested")
-              break
-            }
+//            if (tempAggConds.length > 1) {
+//              tempCurrCond = helper.aggCondsToString(tempCurrCond :: List(tempAggConds.head))
+//            }
+//            else {
+//              println("############ Have to stop since all conditions tested")
+//              break
+//            }
+
           }
         }
         if (sat) {
           println("THIS BRANCH IS REACHABLE")
         }
       }
+
+//      if(aggConds.length > 1) {
+//        println("################# First cond satisfiable")
+//        var tempAggConds = aggConds
+//        var tempCurrCond = currentCond
+//        breakable {
+//          while (sat) {
+//            println("################## Hence we proceed")
+//            tempAggConds = tempAggConds.tail
+//            for (aggCond <- tempAggConds) {
+//              val aggCondsString = helper.aggCondsToString(currentCond :: List(aggCond))
+//              println("##################### NOW TESTING CONDITIONS:")
+//              println(aggCondsString)
+//              sat = executeSolver(aggCondsString, variables)
+//              println("##################### Tested conditions")
+//              if (!sat) {
+//                println("THIS BRANCH IS UNREACHABLE")
+//                println("UNSATISFIABLE CONDITIONS")
+//                println(aggCondsString)
+//                break
+//                // add to lemmas
+//              }
+//            }
+//            if (tempAggConds.length > 1) {
+//              tempCurrCond = helper.aggCondsToString(tempCurrCond :: List(tempAggConds.head))
+//            }
+//            else {
+//              println("############ Have to stop since all conditions tested")
+//              break
+//            }
+//          }
+//        }
+//        if (sat) {
+//          println("THIS BRANCH IS REACHABLE")
+//        }
+//      }
 
       // ----------------------------------------------------------------------------------------
 
@@ -617,11 +690,16 @@ class STSolver(sessionType : SessionType, path: String){
     solver.generateUtilFunctions(util)
   }
 
-  private def executeSolver(condition : String, variables : Map[String, String]) : Boolean = {
+  private def executeSolver(condition : String, variables : Map[String, String]) : (BoolExpr, Boolean) = {
     println("EXECUTING SOLVER ##")
-    solver.generateFormulas(condition, variables)
+    val condExpr = solver.generateFormulas(condition, variables)
     //val outputStream = solver.processInput(solver.convertConditionsToSMTLIB(smtlibFormat))
-    solver.checkUnsat()
+    (condExpr, solver.checkUnsat())
+  }
+
+  private def executeSolverOnAgg(conds : List[BoolExpr]) : Boolean ={
+    println("EXECUTING SOLVER ##")
+    solver.solveAgg(conds)
   }
 
 //  def rebuildSessionType(statement: Statement) : Statement = {

@@ -1,1 +1,1 @@
-S_recur = !Offer().&{?Option1(x : Int)[x < 5].!Accept1()[util.repeat(x)], ?Option2(x : Int)[x >= 5].!Reject2()[!util.repeat(x)]}
+S_recur = !Offer().&{?Option1(x : Int)[x >= 0].!Accept1(n : Int)[util.noRecur(x, n)], ?Option2(x : Int)[x < 0].!Reject2(n : Int)[!util.noRecur(x, n)]}
