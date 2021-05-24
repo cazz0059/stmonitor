@@ -7,6 +7,8 @@ import scala.tools.reflect.ToolBox
 import monitor.model._
 import monitor.model.Scope
 
+//import scala.meta._
+
 import com.microsoft.z3._
 
 //import smtlib.parser.ParserCommands
@@ -444,7 +446,7 @@ class STSolver(sessionType : SessionType, path: String){
       var tmpScope = curScope
       var aggConds = ""
 
-      solver.compareToLemmas("hello") // why is this here?
+      //solver.compareToLemmas("hello") // why is this here?
 
       breakable {
         while (scopes(tmpScope).parentScope.name != "global") {
@@ -521,6 +523,7 @@ class STSolver(sessionType : SessionType, path: String){
     if((traceLabels != null) && (aggConds != null)) {
       println("\n ~ Trace >>>\n " ++ traceLabels.toString() ++ "\n<<<")
       println("\n ~ Conditions >>>\n " ++ aggConds.toString() ++ "\n<<<")
+      pause()
       // this is in the solver itself, no need
 //      val parsedConditions = toolbox.parse(conditions)
 //      println("\n ~ Parsed Conditions >>>\n " ++ parsedConditions.toString() ++ "\n<<<")
@@ -570,11 +573,12 @@ class STSolver(sessionType : SessionType, path: String){
       //val currentCond = aggConds.head
       var unsatConds = ""
       println(" - Testing condition itself")
-      var (boolExpr, sat) = executeSolver(currCond, variables)
+      var (condTree, boolExpr, sat) = executeSolver(currCond, variables)
       addEvent(currLabel, boolExpr)
       println(" - Done")
       if(!sat) {
         unsatConds = currCond
+        solver.addLemma(Set(condTree))
         // add to lemmas
       }
 
@@ -583,6 +587,7 @@ class STSolver(sessionType : SessionType, path: String){
       if(trace.length > 1) {
         println("################# First cond checked")
         var tempTrace = trace
+
         breakable {
           while(sat && (tempTrace.length > 1)) {
             println("################# and satisfiable")
@@ -590,8 +595,10 @@ class STSolver(sessionType : SessionType, path: String){
             println("tempCurrEvent : " + tempCurrEvent)
             println("################## Hence we proceed")
             tempTrace = tempTrace.tail
+
             for (event <- tempTrace) { // for each event in the rest of the trace
               val aggCondsString = helper.aggCondsToString(event._2 :: tempCurrEvent.map(ev=>ev._2)) // gets a string of conjunction of conditions
+              var aggToTree : Set[scala.meta.Term] = Set() // helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev=>ev._2))
               println("##################### NOW TESTING CONDITIONS:")
               println(aggCondsString) // wat was i thinking, this doesnt keep looping like i want it to
               var listOfBoolExprs : List[BoolExpr] = List()
@@ -601,12 +608,31 @@ class STSolver(sessionType : SessionType, path: String){
                 listOfBoolExprs = getEvent(ev._1) :: listOfBoolExprs
               } // getting "first" current conditions
               listOfBoolExprs = getEvent(event._1) :: listOfBoolExprs // getting the one from rest of trace
-              sat = executeSolverOnAgg(listOfBoolExprs)
+              val aggConds = solver.aggregate(listOfBoolExprs.to[ListBuffer])
+
+              var checkLemmas = true
+              if(solver.getLemmas.nonEmpty) { // avoids unnecessary scala meta term parsing
+                aggToTree = helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev=>ev._2))
+                checkLemmas = solver.compareToLemmas(aggToTree)
+              }
+              var matchLemma = false
+              if(checkLemmas)
+                sat = executeSolverOnAgg(aggConds)
+              else {
+                println("Found equal lemma")
+                matchLemma = true
+                sat = false
+              }
               println("##################### Tested conditions")
               if (!sat) {
                 println("THIS BRANCH IS UNREACHABLE")
                 println("UNSATISFIABLE CONDITIONS")
                 println(aggCondsString)
+                if(!matchLemma) {
+                  if (aggToTree.isEmpty) // creates the tree if not yet created - "avoids unnecessary scala meta term parsing"
+                    aggToTree = helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev => ev._2))
+                  solver.addLemma(aggToTree)
+                }
                 break
                 // add to lemmas
               }
@@ -690,16 +716,21 @@ class STSolver(sessionType : SessionType, path: String){
     solver.generateUtilFunctions(util)
   }
 
-  private def executeSolver(condition : String, variables : Map[String, String]) : (BoolExpr, Boolean) = {
+  private def executeSolver(condition : String, variables : Map[String, String]) : (scala.meta.Term, BoolExpr, Boolean) = {
     println("EXECUTING SOLVER ##")
-    val condExpr = solver.generateFormulas(condition, variables)
+    val (condTree, condExpr) = solver.generateFormulas(condition, variables)
     //val outputStream = solver.processInput(solver.convertConditionsToSMTLIB(smtlibFormat))
-    (condExpr, solver.checkUnsat())
+    if(solver.compareToLemmas(Set(condTree)))
+      (condTree, condExpr, solver.checkUnsat())
+    else {
+      println("equal lemma found")
+      (condTree, condExpr, false)
+    }
   }
 
-  private def executeSolverOnAgg(conds : List[BoolExpr]) : Boolean ={
+  private def executeSolverOnAgg(aggConds : BoolExpr) : Boolean ={
     println("EXECUTING SOLVER ##")
-    solver.solveAgg(conds)
+    solver.solveAgg(aggConds)
   }
 
 //  def rebuildSessionType(statement: Statement) : Statement = {

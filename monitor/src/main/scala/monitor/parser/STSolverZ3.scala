@@ -4,8 +4,9 @@ package monitor.parser
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-
 import com.microsoft.z3._
+
+import scala.meta.contrib.XtensionTreeEquality
 
 //import java.io._
 
@@ -57,6 +58,13 @@ class STSolverZ3 {
   private var utilFuncs : Map[String, (List[Term.Param], List[Stat])] = Map() // params, stats in block // Defn.Def(a, Term.Name(name), b, List(params), typ, Term.Block(stats))
   //private var utilCtx : Map[String, Context] = Map()
 
+  def aggregate(expressionList : ListBuffer[BoolExpr]) : BoolExpr = {
+    if(expressionList.tail.nonEmpty)
+      ctx.mkAnd(expressionList.head.asInstanceOf[Expr[BoolSort]], aggregate(expressionList.tail))
+    else
+      expressionList.head
+  }
+
   def addVars(typ : Int, variable : String) : Unit = {
     if(typ == integer) {
       variables.vars = variables.vars + (variable -> (ctx.mkIntConst(variable), integer))
@@ -75,21 +83,21 @@ class STSolverZ3 {
     if(typ == integer) {
       //println("Adding " + variable + " integer")
       //val newParam : SortedMap[String, (Expr[_], Int)] = SortedMap(variable -> (ctx.mkIntConst(variable), typ))
-      val newParam : (String, (Expr[_], Int)) = (variable -> (ctx.mkIntConst(variable), typ))
+      val newParam : (String, (Expr[_], Int)) = variable -> (ctx.mkIntConst(variable), typ)
       //println("New params ; " + newParam)
       //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
       utilParams += newParam// .integers = utilParams(name).integers + (variable -> ctx.mkIntConst(variable))
     }
     else if(typ == boolean) {
       //println("Adding " + variable + " boolean")
-      val newParam : (String, (Expr[_], Int)) = (variable -> (ctx.mkBoolConst(variable), typ))
+      val newParam : (String, (Expr[_], Int)) = variable -> (ctx.mkBoolConst(variable), typ)
       //println("New params ; " + newParam)
       //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
       utilParams += newParam // (name -> newParams)
     }
     else if(typ == string) {
       //println("Adding " + variable + " string")
-      val newParam : (String, (Expr[_], Int)) = (variable -> (ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()), typ))
+      val newParam : (String, (Expr[_], Int)) = variable -> (ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort()), typ)
       //println("New params ; " + newParam)
       //val newParams : SortedMap[String, (Expr[_], Int)] = utilParams(name) ++ newParam
       //utilParams = utilParams + (utilParams(name) ++ (variable -> ctx.mkConst(ctx.mkSymbol(variable), ctx.mkStringSort())))
@@ -113,7 +121,7 @@ class STSolverZ3 {
   }
 
   def removeFuncVars(funcVars : Variables, variable : String) : Variables = {
-    var funcVarsTemp = funcVars
+    val funcVarsTemp = funcVars
     funcVarsTemp.vars = funcVarsTemp.vars - variable
     funcVarsTemp
   }
@@ -121,7 +129,7 @@ class STSolverZ3 {
 
   private var assertions : Map[String, BoolExpr] = Map()
   // find way to eliminate conditions that have nothing to do with the unsatisfiability - saveUnsatConds()
-  private var lemmas : List[String] = List() // SMT read this and see if it is the same semantics
+  private var lemmas : List[Set[Term]] = List() // SMT read this and see if it is the same semantics
   //private val cnfTransformer = new TransformToCnf()
 
   def pause() : Unit = {
@@ -133,19 +141,54 @@ class STSolverZ3 {
     assertions = assertions + (label -> assertion)
   }
 
-  def addLemma(aggConds : String): Unit = {
-    lemmas = aggConds :: lemmas
+  def getLemmas : List[Set[Term]] = {
+    lemmas
   }
 
-  def compareToLemmas(aggConds : String): Unit = {
+  // change to list of strings?
+  def addLemma(unsatCond : Set[Term]) : Unit = {
+    println("Adding lemma...")
+    lemmas = unsatCond :: lemmas
+    println(lemmas)
+  }
+
+  def compareToLemmas(checkCond : Set[Term]) : Boolean = {
     // can be done with toolbox - no use cnf instead, I think it saves easier
 
     // get semantics of aggConds - cnf clauses
     // for each lemma
     //    get semantics of lemma
     //    compare semantics - check if clauses in lemma make up subset of clauses in aggConds
+    for(lemma <- lemmas) {
+      println("/// comparing ")
+      println(checkCond)
+      println("/// with")
+      println(lemma)
+      println("///")
 
+      // change the trees to string and compare them then
+//      var stringCond : Set[String] = Set()
+//      for (cond <- checkCond) stringCond = stringCond ++ cond
+//      var stringLemma : Set[String] = Set()
+//      for (lma <- lemma) stringLemma = stringLemma ++ lma
 
+      var equCheck = true // and with this - checks that all elts in set are equal
+      for(lm <- lemma){
+        var currLemmaCheck = false
+        for(cond <- checkCond){
+          if(lm.isEqual(cond)) {
+            currLemmaCheck = true
+          }
+        }
+        equCheck = equCheck && currLemmaCheck
+      }
+
+      if(equCheck) { // stringCond.equals(stringLemma)
+        println("/// these are equivalent, so we assume unsat")
+        return false
+      }
+    }
+    true
   }
 
   //  def saveUnsatConds(unsatCNF : CNF) : CNF = {
@@ -216,15 +259,19 @@ class STSolverZ3 {
     // these return all possible combinations of a desired type
     def getBoolExpr(arg : Term, funcVars : Variables) : BoolExpr = arg match {
       case Lit.Boolean(value) =>
+        if(value)
+          ctx.mkTrue()
+        else
+          ctx.mkFalse()
         // cannot have this constant param name, there may be others in the same function
-        val temp_bool_const = ctx.mkBoolConst("temp_traverse_bool_const_" + count)
-        incCount()
-        var temp_and : BoolExpr = null
+//        val temp_bool_const = ctx.mkBoolConst("temp_traverse_bool_const_" + count)
+//        incCount()
+//        var temp_and : BoolExpr = null
+//
+//        if(!value) temp_and = ctx.mkAnd(temp_bool_const, ctx.mkNot(temp_bool_const))
+//        else temp_and = ctx.mkAnd(temp_bool_const, temp_bool_const) // temp_bool_const // why did i set it to null? because if it is itself it is always sat
 
-        if(!value) temp_and = ctx.mkAnd(temp_bool_const, ctx.mkNot(temp_bool_const))
-        else temp_and = ctx.mkAnd(temp_bool_const, temp_bool_const) // temp_bool_const // why did i set it to null? because if it is itself it is always sat
-
-        temp_and
+//        temp_and
 
 
       case termName @ Term.Name(name) =>
@@ -662,8 +709,10 @@ class STSolverZ3 {
         getIntExpr(arg, funcVars)
       case Term.ApplyUnary(op, arg) =>
         val unExp = getIntExpr(arg, funcVars)
-        if (unExp != null)
-          ctx.mkSub(getIntExpr(Lit.Int(0), funcVars), unExp)
+        if (unExp != null){
+          // ctx.mkSub(getIntExpr(Lit.Int(0), funcVars), unExp)
+          ctx.mkUnaryMinus(unExp)
+        }
         else
           null // ctx.mkBVNeg(ctx.mkInt2BV(getIntExpr(arg)))
       case _ =>
@@ -671,12 +720,6 @@ class STSolverZ3 {
     }
 
     ///--------------------------------
-    def aggregate(expressionList : ListBuffer[BoolExpr]) : BoolExpr = {
-      if(expressionList.tail.nonEmpty)
-        ctx.mkAnd(expressionList.head.asInstanceOf[Expr[BoolSort]], aggregate(expressionList.tail))
-      else
-        expressionList.head
-    }
 
     // called only from conditions, not util file
     // gets list of all interpretations in the function call as a big AND of assertions in BoolExpr format, called from getBoolExpr to be used anywhere
@@ -792,7 +835,7 @@ class STSolverZ3 {
           //println("RHS: "  + rhsExpr)
           expressions += ctx.mkEq(lhsNewExpr, rhsExpr)
           // change name
-          funcVars = removeFuncVars(funcVars, lhsName)
+          //funcVars = removeFuncVars(funcVars, lhsName)
           //println("current keyset " + funcVars.vars.keySet)
 
         case Term.ApplyInfix(lhs, op, targs, args) =>
@@ -1191,6 +1234,7 @@ class STSolverZ3 {
           if(!solvable) return null
           //println("got arg " + argExpr.toString)
           val param: Expr[_] = utilParams(utilParams.keys.toList(counter))._1 // getParam()
+          //param.substitute????????????????????????????????????????????????????????????????????????????????
           //println("got param " + param.toString)
           eqArgParam += ctx.mkEq(argExpr, param)
           //println("Parameter setting >> " + equality)
@@ -1360,7 +1404,7 @@ class STSolverZ3 {
     pause()
   }
 
-  def generateFormulas(conditions : String, vars : Map[String, String]) : BoolExpr = {
+  def generateFormulas(conditions : String, vars : Map[String, String]) : (Term, BoolExpr) = {
     // use toolbox to parse through command
     // use case matching to traverse the created tree recursively
     // in each case write the corresponding smtlib format command
@@ -1442,7 +1486,7 @@ class STSolverZ3 {
     println("Traversed")
     pause()
 
-    conditionExp
+    (conditionTree, conditionExp)
 
     //    var smtlibConditions = "(set-logic QF_LIA)\n" + smtlibVariables + traverser.getSmtlibString + "(check-sat)\n(get-model)"
 
@@ -1631,10 +1675,10 @@ class STSolverZ3 {
     //null
   }
 
-  def solveAgg(conds : List[BoolExpr]) : Boolean = {
-    var condsBuffer : ListBuffer[BoolExpr] = ListBuffer()
-    for(cond <- conds) condsBuffer += cond
-    var aggConds = traverser.aggregate(condsBuffer)
+  def solveAgg(aggConds : BoolExpr) : Boolean = {
+//    var condsBuffer : ListBuffer[BoolExpr] = ListBuffer()
+//    for(cond <- conds) condsBuffer += cond
+//    val aggConds = aggregate(condsBuffer)
     traverser.getSolver.add(aggConds)
 
     println("Checking the following (trace) ->")
