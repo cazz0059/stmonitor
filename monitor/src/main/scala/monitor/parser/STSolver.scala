@@ -557,7 +557,6 @@ class STSolver(sessionType : SessionType, path: String){
       // ~~~
 
 
-
       // 21/04/2021
       // IMPROVEMENT OF THIS LOOP - TO DO
       // - save the label of the event and its corresponding parsed context assertion, the whole set of commands
@@ -588,63 +587,88 @@ class STSolver(sessionType : SessionType, path: String){
         println("################# First cond checked")
         var tempTrace = trace
 
-        breakable {
-          while(sat && (tempTrace.length > 1)) {
-            println("################# and satisfiable")
-            tempCurrEvent = tempTrace.head :: tempCurrEvent
-            println("tempCurrEvent : " + tempCurrEvent)
-            println("################## Hence we proceed")
-            tempTrace = tempTrace.tail
+        var fullTrace : List[BoolExpr] = List()
+        // first check if unsat for sure
+        for(ev <- tempTrace) {
+          println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
+          fullTrace = getEvent(ev._1) :: fullTrace
+        }
 
-            for (event <- tempTrace) { // for each event in the rest of the trace
-              val aggCondsString = helper.aggCondsToString(event._2 :: tempCurrEvent.map(ev=>ev._2)) // gets a string of conjunction of conditions
-              var aggToTree : Set[scala.meta.Term] = Set() // helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev=>ev._2))
-              println("##################### NOW TESTING CONDITIONS:")
-              println(aggCondsString) // wat was i thinking, this doesnt keep looping like i want it to
-              var listOfBoolExprs : List[BoolExpr] = List()
+        val aggConds = solver.aggregate(fullTrace.to[ListBuffer])
 
-              for(ev <- tempCurrEvent) {
-                println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
-                listOfBoolExprs = getEvent(ev._1) :: listOfBoolExprs
-              } // getting "first" current conditions
-              listOfBoolExprs = getEvent(event._1) :: listOfBoolExprs // getting the one from rest of trace
-              val aggConds = solver.aggregate(listOfBoolExprs.to[ListBuffer])
+        var checkLemmas = true
+        if(solver.getLemmas.nonEmpty) { // avoids unnecessary scala meta term parsing
+          val fullTraceToTree = helper.aggCondsToTree(tempTrace.map(ev=>ev._2))
+          checkLemmas = solver.compareToLemmas(fullTraceToTree)
+        }
+        var matchLemma = false
+        if(checkLemmas)
+          sat = executeSolverOnAgg(aggConds)
+        else {
+          println("Found equal lemma")
+          matchLemma = true
+          sat = false
+        }
 
-              var checkLemmas = true
-              if(solver.getLemmas.nonEmpty) { // avoids unnecessary scala meta term parsing
-                aggToTree = helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev=>ev._2))
-                checkLemmas = solver.compareToLemmas(aggToTree)
-              }
-              var matchLemma = false
-              if(checkLemmas)
-                sat = executeSolverOnAgg(aggConds)
-              else {
-                println("Found equal lemma")
-                matchLemma = true
-                sat = false
-              }
-              println("##################### Tested conditions")
-              if (!sat) {
-                println("THIS BRANCH IS UNREACHABLE")
-                println("UNSATISFIABLE CONDITIONS")
-                println(aggCondsString)
-                if(!matchLemma) {
-                  if (aggToTree.isEmpty) // creates the tree if not yet created - "avoids unnecessary scala meta term parsing"
-                    aggToTree = helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev => ev._2))
-                  solver.addLemma(aggToTree)
+        if(!sat) {
+          breakable {
+            while (sat && (tempTrace.length > 1)) {
+              println("################# and satisfiable")
+              tempCurrEvent = tempTrace.head :: tempCurrEvent
+              println("tempCurrEvent : " + tempCurrEvent)
+              println("################## Hence we proceed")
+              tempTrace = tempTrace.tail
+
+              for (event <- tempTrace) { // for each event in the rest of the trace
+                val aggCondsString = helper.aggCondsToString(event._2 :: tempCurrEvent.map(ev => ev._2)) // gets a string of conjunction of conditions
+                var aggToTree: Set[scala.meta.Term] = Set() // helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev=>ev._2))
+                println("##################### NOW TESTING CONDITIONS:")
+                println(aggCondsString) // wat was i thinking, this doesnt keep looping like i want it to
+                var listOfBoolExprs: List[BoolExpr] = List()
+
+                for (ev <- tempCurrEvent) {
+                  println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
+                  listOfBoolExprs = getEvent(ev._1) :: listOfBoolExprs
+                } // getting "first" current conditions
+                listOfBoolExprs = getEvent(event._1) :: listOfBoolExprs // getting the one from rest of trace
+                val aggConds = solver.aggregate(listOfBoolExprs.to[ListBuffer])
+
+                var checkLemmas = true
+                if (solver.getLemmas.nonEmpty) { // avoids unnecessary scala meta term parsing
+                  aggToTree = helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev => ev._2))
+                  checkLemmas = solver.compareToLemmas(aggToTree)
                 }
-                break
-                // add to lemmas
+                var matchLemma = false
+                if (checkLemmas)
+                  sat = executeSolverOnAgg(aggConds)
+                else {
+                  println("Found equal lemma")
+                  matchLemma = true
+                  sat = false
+                }
+                println("##################### Tested conditions")
+                if (!sat) {
+                  println("THIS BRANCH IS UNREACHABLE")
+                  println("UNSATISFIABLE CONDITIONS")
+                  println(aggCondsString)
+                  if (!matchLemma) {
+                    if (aggToTree.isEmpty) // creates the tree if not yet created - "avoids unnecessary scala meta term parsing"
+                      aggToTree = helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev => ev._2))
+                    solver.addLemma(aggToTree)
+                  }
+                  break
+                  // add to lemmas
+                }
               }
-            }
-//            if (tempAggConds.length > 1) {
-//              tempCurrCond = helper.aggCondsToString(tempCurrCond :: List(tempAggConds.head))
-//            }
-//            else {
-//              println("############ Have to stop since all conditions tested")
-//              break
-//            }
+              //            if (tempAggConds.length > 1) {
+              //              tempCurrCond = helper.aggCondsToString(tempCurrCond :: List(tempAggConds.head))
+              //            }
+              //            else {
+              //              println("############ Have to stop since all conditions tested")
+              //              break
+              //            }
 
+            }
           }
         }
         if (sat) {
@@ -693,8 +717,7 @@ class STSolver(sessionType : SessionType, path: String){
       // user input for now
 //      println("Is this SAT?")
       pause()
-      if (sat) true
-      else false
+      sat
 
 //      if (ans == "no") {
 //        println("Answer is no, so UNSAT")
