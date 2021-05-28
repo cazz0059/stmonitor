@@ -41,7 +41,9 @@ lazy val monitor = (project in file("monitor")).
       "org.scala-lang" % "scala-reflect" % scalaVersion.value,
       "org.scala-lang" % "scala-compiler" % scalaVersion.value,
       "ch.qos.logback" % "logback-classic" % "1.2.3",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3"
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3",
+      "com.regblanc" %% "scala-smtlib" % "0.2.2",
+      "org.scalameta" %% "scalameta" % "4.4.12"
     )
   )
 
@@ -59,6 +61,7 @@ lazy val examples = (project in file("examples")).
         generateMonitor(baseDir, "smtp").value
         generateMonitor(baseDir, "auth").value
         generateMonitor(baseDir, "game").value
+        //generateMonitor(baseDir+"/tests", "simple").value
       }
     }).value,
 

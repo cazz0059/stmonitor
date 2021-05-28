@@ -1,0 +1,50 @@
+S_arithmetic = &{
+    ?Add(x : Int, y : Int)[util.add(x : Int, y : Int)].+{
+        !Answer(z : Int)[z == x+y],
+        !Invalid(z : Int)[(z < x) || (z < y)]
+    },
+    ?Negate(x : Bool)[!(x==0)].+{
+        !Answer(z : Int)[z == -x],
+        !Invalid()[x == 0]
+    },
+    ?Sqrt(x : Float)[x > 0].+{
+        !Answer(y : Float)[(x >= 0) && (y == x.sqrt())],
+        !Invalid()[x < 0]
+    }
+}
+
+---------------------------------------------------------
+https://github.com/Munksgaard/session-types/blob/master/examples/arithmetic.rs
+
+redundant branch in square root invalid
+
+last branch was ignored since the type of the parameter is not a base type
+
+type Srv = Offer<
+    Eps,
+    Offer<
+        Recv<i64, Recv<i64, Send<i64, Var<Z>>>>,
+        Offer<
+            Recv<i64, Send<i64, Var<Z>>>,
+            Offer<
+                Recv<f64, Choose<Send<f64, Var<Z>>, Var<Z>>>,
+                Recv<fn(i64) -> bool, Recv<i64, Send<bool, Var<Z>>>>,
+            >,
+        >,
+    >,
+>;
+
+
+-----------------------------------------------------
+
+Defn.Val(
+    Nil,
+    List(Pat.Var(Term.Name("z"))),
+    None,
+    Term.ApplyInfix(
+        Term.Name("x"),
+        Term.Name("+"),
+        Nil,
+        List(Term.Name("y"))
+    )
+)

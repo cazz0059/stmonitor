@@ -3,6 +3,9 @@ package monitor.synth
 import com.typesafe.scalalogging.Logger
 import monitor.interpreter.STInterpreter
 import monitor.parser.STParser
+import monitor.parser.STParseTree
+import monitor.parser.STSolver
+import monitor.parser.STSolverHelper
 
 import java.io.{File, PrintWriter}
 import scala.io.Source
@@ -29,6 +32,49 @@ class Synth {
         val stFile = sessionTypePath.substring(sessionTypePath.lastIndexOf('/')+1)
         logger.info(f"Input type $stFile parsed successfully")
         val preambleFile = Try(Source.fromFile(preamblePath).mkString)
+
+        val parseTree = new STParseTree(r, "original")
+        try {
+          parseTree.construct()
+        } catch {
+          case e: Exception =>
+            println()
+            logger.info("ParseTree Construction Error: " + e.getMessage)
+            return
+        }
+
+        val solver = new STSolver(r, directoryPath)
+        var rSolved = r
+        try {
+          rSolved = solver.run()
+        } catch {
+          case e: Exception =>
+            println()
+            logger.info("Solver Error: " + e.getMessage)
+            return
+        }
+
+        val helper = new STSolverHelper()
+        try {
+          helper.rebuildST(rSolved)
+        } catch {
+          case e: Exception =>
+            println()
+            logger.info("ST Builder Error: " + e.getMessage)
+            return
+        }
+
+        val parseTreeSolved = new STParseTree(rSolved, "solved")
+        try {
+          parseTreeSolved.construct()
+        } catch {
+          case e: Exception =>
+            println()
+            logger.info("ParseTree2 Error: " + e.getMessage)
+            return
+        }
+
+
         val interpreter = new STInterpreter(r, directoryPath, preambleFile.getOrElse(""))
         try {
           val (mon, protocol) = interpreter.run()

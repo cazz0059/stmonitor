@@ -1,0 +1,45 @@
+global protocol Negotiate(role Producer as P, role Consumer as C) {
+    propose(String, int i) from P to C; [i == 0]
+    rec START {
+        choice at C {
+            accept() from C to P; [i > 0]
+            confirm() from P to C;
+        } or {
+            reject() from C to P; [i < 0]
+        } or {
+            propose(String, int i2) from C to P; [i == 0]
+            choice at P {
+                accept() from P to C; [util.validate(i, check)]
+                confirm() from C to P;
+            } or {
+                reject() from P to C; [i2 < 0]
+            } or {
+                propose(String) from P to C; [i2 >= 0]
+                continue START;
+            }
+        }
+    }
+}
+
+https://groups.inf.ed.ac.uk/abcd/meeting-january2014/raymond-hu.pdf
+
+this should end up as
+propose -> propose -> reject
+for all cases
+(what no, it can go to propose3)
+
+the args were i, check, and the params x, check,   but the function contains i declaration and so it was changed so that they dont clash
+leave it as is because i=x anyways
+
+
+S_negotiate = !Propose(proposal : String, i : Int)[i == 0].rec START.(
+        &{
+            ?Accept()[i > 0].!Confirm(),
+            ?Reject()[i < 0],
+            ?Propose(proposal2 : String, i2 : Int)[i == 0].+{
+                !Accept(check :Boolean)[util.validate(i, check)].?Confirm(),
+                !Reject()[i2 < 0],
+                !Propose(proposal3 : String, i3 : Int)[i2 >= 0].START
+            }
+        }
+    )
