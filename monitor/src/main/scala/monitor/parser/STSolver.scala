@@ -22,7 +22,7 @@ import scala.util.control.Breaks._
 
 import com.typesafe.scalalogging.Logger
 
-class STSolver(sessionType : SessionType, path: String){
+class STSolver(sessionType : SessionType, path: String, preamble: String){
 
   // modify original session type
 
@@ -265,7 +265,7 @@ class STSolver(sessionType : SessionType, path: String){
         checkRecVariable(scopes(curScope), statement)
         RecursiveVar(name, walk(statement.continuation))
 
-      case End() => null
+      case End() => End()
 
     }
   }
@@ -480,7 +480,12 @@ class STSolver(sessionType : SessionType, path: String){
 
       // getting util file contents
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
-      val util = try source.mkString finally source.close()
+      var util = try source.mkString finally source.close()
+      util = util.replaceFirst("package .*\n", "")
+      util = util.replace(preamble, "")
+      //println("[]")
+      //print(util)
+      //println("[]")
 
       for(identName <- identifiersInAggConds){
         val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
@@ -583,14 +588,14 @@ class STSolver(sessionType : SessionType, path: String){
 
       var tempCurrEvent : List[(String, String)] = List() // trace.head
 
-      if(trace.length > 1) {
+      if((trace.length > 1) && sat) {
         println("################# First cond checked")
         var tempTrace = trace
 
         var fullTrace : List[BoolExpr] = List()
         // first check if unsat for sure
         for(ev <- tempTrace) {
-          println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
+          //println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
           fullTrace = getEvent(ev._1) :: fullTrace
         }
 
@@ -601,16 +606,19 @@ class STSolver(sessionType : SessionType, path: String){
           val fullTraceToTree = helper.aggCondsToTree(tempTrace.map(ev=>ev._2))
           checkLemmas = solver.compareToLemmas(fullTraceToTree)
         }
+        println("Checked lemmas")
+        pause()
         var matchLemma = false
+        var satAgg = false
         if(checkLemmas)
-          sat = executeSolverOnAgg(aggConds)
+          satAgg = executeSolverOnAgg(aggConds)
         else {
           println("Found equal lemma")
           matchLemma = true
-          sat = false
+          satAgg = false
         }
 
-        if(!sat) {
+        if(!satAgg) {
           breakable {
             while (sat && (tempTrace.length > 1)) {
               println("################# and satisfiable")
@@ -627,7 +635,7 @@ class STSolver(sessionType : SessionType, path: String){
                 var listOfBoolExprs: List[BoolExpr] = List()
 
                 for (ev <- tempCurrEvent) {
-                  println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
+                  //println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
                   listOfBoolExprs = getEvent(ev._1) :: listOfBoolExprs
                 } // getting "first" current conditions
                 listOfBoolExprs = getEvent(event._1) :: listOfBoolExprs // getting the one from rest of trace
@@ -716,6 +724,8 @@ class STSolver(sessionType : SessionType, path: String){
 
       // user input for now
 //      println("Is this SAT?")
+      println("Current lemmas -")
+      println(solver.getLemmas)
       pause()
       sat
 

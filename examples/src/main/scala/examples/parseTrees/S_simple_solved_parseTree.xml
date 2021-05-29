@@ -1,0 +1,1 @@
+<S_simple><recursion_X><send_Get><types>ans : Boolean</types><conditions assertions="ans &amp;&amp; util.redundant()"/><continuation><branch_InternalChoice1><choice><receive_Confirm><types>msg : String</types><conditions assertions="ans"/><continuation/></receive_Confirm></choice></branch_InternalChoice1></continuation></send_Get></recursion_X></S_simple>

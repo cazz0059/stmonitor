@@ -20,7 +20,7 @@ class STParser extends StandardTokenParsers {
     statementIDCounter
   }
 
-  def sessionTypeVar: Parser[SessionType] = (ident ~> "=") ~ sessionType ^^ {
+  def sessionTypeVar: Parser[SessionType] = (ident <~ "=") ~ sessionType ^^ {
     case i ~ t =>
       new SessionType(i, t)
   }

@@ -43,7 +43,7 @@ class Synth {
             return
         }
 
-        val solver = new STSolver(r, directoryPath)
+        val solver = new STSolver(r, directoryPath, preambleFile.getOrElse(""))
         var rSolved = r
         try {
           rSolved = solver.run()
@@ -76,17 +76,30 @@ class Synth {
 
 
         val interpreter = new STInterpreter(r, directoryPath, preambleFile.getOrElse(""))
+        val interpreterOpt = new STInterpreter(rSolved, directoryPath, preambleFile.getOrElse(""))
         try {
+          logger.info("Running interpreter")
           val (mon, protocol) = interpreter.run()
+          logger.info("Running optimised interpreter")
+          val (monOpt, protocolOpt) = interpreterOpt.run()
+          logger.info("Both interpreters run")
           if(synthMonFile){
             lazy val monFile = new PrintWriter(new File(directoryPath+"/Monitor.scala"))
             monFile.write(mon.toString)
             monFile.close()
+
+            lazy val monOptFile = new PrintWriter(new File(directoryPath+"/Monitor-Opt.scala"))
+            monOptFile.write(monOpt.toString)
+            monOptFile.close()
           }
           if(synthProtocolFile){
             lazy val protocolFile = new PrintWriter(new File(directoryPath+"/CPSPc.scala"))
             protocolFile.write(protocol.toString)
             protocolFile.close()
+
+            lazy val protocolOptFile = new PrintWriter(new File(directoryPath+"/CPSPc-Opt.scala"))
+            protocolOptFile.write(protocolOpt.toString)
+            protocolOptFile.close()
           }
           logger.info(f"Successful synthesis for input type $stFile at $directoryPath")
         } catch {

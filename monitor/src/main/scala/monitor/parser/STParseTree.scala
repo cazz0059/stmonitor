@@ -29,7 +29,8 @@ class STParseTree(sessionType: SessionType, name: String) {
 //    print("\n")//
 //    print(parseTree)//
 //    print("\n\n")//
-    XML.save("examples/src/main/scala/monitor/examples/parseTrees/" ++ STname ++ "_" ++ name ++ "_parseTree.xml", xmlText)
+    //XML.save("examples/src/main/scala/monitor/examples/parseTrees/" ++ STname ++ "_" ++ name ++ "_parseTree.xml", xmlText)
+    XML.save("examples/src/main/scala/examples/parseTrees/" ++ STname ++ "_" ++ name ++ "_parseTree.xml", xmlText)
     logger.info("XML file created")
     println()
     //logger.info("XML text created")//

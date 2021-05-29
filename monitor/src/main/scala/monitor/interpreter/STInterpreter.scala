@@ -106,6 +106,8 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         initialWalk(continuation)
 
       case End() =>
+
+      case null =>
     }
   }
 
@@ -118,6 +120,8 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
   def walk(statement: Statement): Unit = {
     statement match {
       case statement @ ReceiveStatement(label, id, types, condition, _) =>
+
+        println("rec st")
         curScope = id
         checkCondition(label, types, condition)
         synthMon.handleReceive(statement, statement.continuation, scopes(curScope).isUnique) // Change isUnique accordingly
@@ -125,6 +129,7 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         walk(statement.continuation)
 
       case statement @ SendStatement(label, id, types, condition, _) =>
+        println("send st")
         curScope = id
         checkCondition(label, types, condition)
 
@@ -133,6 +138,7 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         walk(statement.continuation)
 
       case statement @ ReceiveChoiceStatement(label, choices) =>
+        println("rec ch")
         curScope = label
         val tmpScope = curScope
         synthMon.handleReceiveChoice(statement)
@@ -148,6 +154,7 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         }
 
       case statement @ SendChoiceStatement(label, choices) =>
+        println("send ch")
         curScope = label
         val tmpScope = curScope
         synthMon.handleSendChoice(statement)
@@ -163,13 +170,19 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         }
 
       case statement @ RecursiveStatement(label, body) =>
+        println("recur st")
         walk(statement.body)
 
       case statement @ RecursiveVar(name, continuation) =>
+        println("recur var")
         checkRecVariable(scopes(curScope), statement)
         walk(statement.continuation)
 
       case End() =>
+        println("end")
+
+      case null =>
+        println("null")
 
       }
   }
@@ -369,6 +382,7 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
         util = try source.mkString finally source.close()
         util = util.replaceFirst("package .*\n", "")
+        util = util.replace(preamble, "")
       }
       var stringVariables = ""
       val identifiersInCondition = getIdentifiers(condition)

@@ -345,7 +345,7 @@ class STSolverZ3 {
     }
 
     def getExpr(arg : Term, funcVars : Variables) : (Expr[_], Int) = {
-      println("Getting expression " + arg.toString())
+      //println("Getting expression " + arg.toString())
 
       var expr : Expr[_] = getBoolExpr(arg, funcVars)
       var typ = boolean
@@ -1320,6 +1320,12 @@ class STSolverZ3 {
             stat match {
               case obj @ Defn.Object(mods, name, template) =>
                 traverseObject(obj)
+              case Pkg(pkg, objs) =>
+                objs.head match {
+                  case obj @ Defn.Object(mods, name, template) =>
+                    traverseObject(obj)
+                }
+
             }
           }
         case _ =>

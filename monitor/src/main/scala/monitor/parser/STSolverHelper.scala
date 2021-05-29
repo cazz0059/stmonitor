@@ -338,7 +338,7 @@ class STSolverHelper {
 
   def rebuildST(sessionType: SessionType): Unit = {
     val rebuiltST = sessionType.name + " = " + rebuilding(sessionType.statement)
-    val pw = new PrintWriter(new File("examples/src/main/scala/monitor/examples/solvedST/" + sessionType.name + ".st"))
+    val pw = new PrintWriter(new File("examples/src/main/scala/examples/solvedST/" + sessionType.name + ".st"))
     pw.write(rebuiltST)
     pw.close()
   }

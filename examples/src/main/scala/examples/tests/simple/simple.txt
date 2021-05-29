@@ -19,3 +19,12 @@ Defn.Object(
 )
 
 S_simple = rec X.( ?Get(ans: Boolean)[ans].+{!Confirm(msg: String)[ans], !Deny()[!ans].X} )
+
+Source(
+    List(
+        Pkg(
+            Term.Select(Term.Select(Term.Name("examples"), Term.Name("tests")), Term.Name("simple")),
+            List(Defn.Object(Nil, Term.Name("util"), Template(Nil, Nil, Self(Name(""), None), List(Defn.Def(Nil, Term.Name("redundant"), Nil, List(List()), Some(Type.Name("Boolean")), Term.Block(List(Lit.Boolean(true))))), Nil)))
+        )
+    )
+)

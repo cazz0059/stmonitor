@@ -56,11 +56,11 @@ lazy val examples = (project in file("examples")).
     generateMonitors := (Def.taskDyn {
       val baseDir = sourceDirectory.value / "main" / "scala" / "examples"
       Def.task {
-        generateMonitor(baseDir, "http").value
-        generateMonitor(baseDir, "pingpong").value
-        generateMonitor(baseDir, "smtp").value
-        generateMonitor(baseDir, "auth").value
-        generateMonitor(baseDir, "game").value
+        //generateMonitor(baseDir, "http").value
+        //generateMonitor(baseDir, "pingpong").value
+        //generateMonitor(baseDir, "smtp").value
+        //generateMonitor(baseDir, "auth").value
+        //generateMonitor(baseDir, "game").value
         //generateMonitor(baseDir+"/tests", "simple").value
       }
     }).value,
