@@ -11,6 +11,8 @@ import monitor.model.Scope
 
 import com.microsoft.z3._
 
+import java.io._
+
 //import smtlib.parser.ParserCommands
 //import smtlib.parser.ParserTerms
 //import smtlib.theories.Core.{Not, Or}
@@ -38,6 +40,8 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
   scopes(curScope) = new Scope(curScope, curScope, null)
 
   private var solvedST : SessionType = new SessionType(null, null)
+
+  private var allTraces : Map[ListBuffer[String], Boolean] = helper.getAllTraces(sessionType)
 
   def pause() : Unit = {
     print("Pausing...")
@@ -100,6 +104,20 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
     solvedST.statement = walk(sessionType.statement)
     if(solvedST.statement == null)
       solvedST.statement = End()
+
+    val pw = new PrintWriter(new File("examples/src/main/scala/examples/traceStats/" ++ sessionType.name ++ "_unreachability_status_table.txt" ))
+    var table = "Reachable? |  Trace  \n"
+    for(trace <- allTraces){
+      if(trace._2){
+        table = table + "Yes        |  " + trace._1 + "\n"
+      }
+      else {
+        table = table + "No         |  " + trace._1 + "\n"
+      }
+    }
+    pw.write(table)
+    pw.close
+
     solvedST//sessionType
   }
 
@@ -588,11 +606,12 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
 
       var tempCurrEvent : List[(String, String)] = List() // trace.head
 
+      var fullTrace : List[BoolExpr] = List()
+
       if((trace.length > 1) && sat) {
         println("################# First cond checked")
         var tempTrace = trace
 
-        var fullTrace : List[BoolExpr] = List()
         // first check if unsat for sure
         for(ev <- tempTrace) {
           //println("Checking event is correct... " + ev._1 + " : " + getEvent(ev._1))
@@ -684,48 +703,21 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
         }
       }
 
-//      if(aggConds.length > 1) {
-//        println("################# First cond satisfiable")
-//        var tempAggConds = aggConds
-//        var tempCurrCond = currentCond
-//        breakable {
-//          while (sat) {
-//            println("################## Hence we proceed")
-//            tempAggConds = tempAggConds.tail
-//            for (aggCond <- tempAggConds) {
-//              val aggCondsString = helper.aggCondsToString(currentCond :: List(aggCond))
-//              println("##################### NOW TESTING CONDITIONS:")
-//              println(aggCondsString)
-//              sat = executeSolver(aggCondsString, variables)
-//              println("##################### Tested conditions")
-//              if (!sat) {
-//                println("THIS BRANCH IS UNREACHABLE")
-//                println("UNSATISFIABLE CONDITIONS")
-//                println(aggCondsString)
-//                break
-//                // add to lemmas
-//              }
-//            }
-//            if (tempAggConds.length > 1) {
-//              tempCurrCond = helper.aggCondsToString(tempCurrCond :: List(tempAggConds.head))
-//            }
-//            else {
-//              println("############ Have to stop since all conditions tested")
-//              break
-//            }
-//          }
-//        }
-//        if (sat) {
-//          println("THIS BRANCH IS REACHABLE")
-//        }
-//      }
-
-      // ----------------------------------------------------------------------------------------
 
       // user input for now
 //      println("Is this SAT?")
       println("Current lemmas -")
       println(solver.getLemmas)
+      pause()
+
+      if(!sat) {
+        for(trc <- allTraces) {
+          if (fullTrace.forall(trc._1.toList.contains)) {
+            allTraces = allTraces.updated(trc._1, false)
+          }
+        }
+      }
+
       pause()
       sat
 

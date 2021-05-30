@@ -84,20 +84,20 @@ class Synth {
           val (monOpt, protocolOpt) = interpreterOpt.run()
           logger.info("Both interpreters run")
           if(synthMonFile){
-            lazy val monFile = new PrintWriter(new File(directoryPath+"/Monitor.scala"))
+            lazy val monFile = new PrintWriter(new File(directoryPath+"/Monitor-Original.txt"))
             monFile.write(mon.toString)
             monFile.close()
 
-            lazy val monOptFile = new PrintWriter(new File(directoryPath+"/Monitor-Opt.scala"))
+            lazy val monOptFile = new PrintWriter(new File(directoryPath+"/Monitor.scala"))
             monOptFile.write(monOpt.toString)
             monOptFile.close()
           }
           if(synthProtocolFile){
-            lazy val protocolFile = new PrintWriter(new File(directoryPath+"/CPSPc.scala"))
+            lazy val protocolFile = new PrintWriter(new File(directoryPath+"/CPSPc-Original.txt"))
             protocolFile.write(protocol.toString)
             protocolFile.close()
 
-            lazy val protocolOptFile = new PrintWriter(new File(directoryPath+"/CPSPc-Opt.scala"))
+            lazy val protocolOptFile = new PrintWriter(new File(directoryPath+"/CPSPc.scala"))
             protocolOptFile.write(protocolOpt.toString)
             protocolOptFile.close()
           }

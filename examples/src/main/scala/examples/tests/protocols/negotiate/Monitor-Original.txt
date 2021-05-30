@@ -11,9 +11,20 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 			var proposal: String = _
 			var i: Int = _
 		}
+		object Accept1_2 {
+		}
+		object Confirm_1 {
+		}
+		object Reject1_3 {
+		}
 		object Propose2_8 {
 			var proposal2: String = _
 			var i2: Int = _
+		}
+		object Accept2_5 {
+			var check: Boolean = _
+		}
+		object Confirm_4 {
 		}
 		object Reject2_6 {
 		}
@@ -44,6 +55,20 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 	}
 	def sendExternalChoice1(internal: In[ExternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
 		internal ? {
+			case msg @ Accept1() =>
+				if(payloads.Propose1_9.i > 0){
+					external.send(msg)
+					if (count < max) {
+						receiveConfirm_1(msg.cont, external, count+1)
+					} else { tailcall(receiveConfirm_1(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: i > 0"); done() }
+			case msg @ Reject1() =>
+				if(payloads.Propose1_9.i < 0){
+					external.send(msg)
+					done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: i < 0"); done() }
 			case msg @ Propose2(_, _) =>
 				if(payloads.Propose1_9.i == 0){
 					external.send(msg)
@@ -56,8 +81,23 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
 		}
 	}
+  def receiveConfirm_1(internal: Out[Confirm_1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Confirm_1()=>
+				internal ! msg; done()
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
 	def receiveInternalChoice1(internal: Out[InternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
 		external.receive() match {
+			case msg @ Accept2(_)=>
+				if(util.validate(payloads.Propose1_9.i, msg.check)){
+					val cont = internal !! Accept2(msg.check)_
+					if (count < max) {
+						sendConfirm_4(cont, external, count+1)
+					} else { tailcall(sendConfirm_4(cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: util.validate(i, check)"); done() }
 			case msg @ Reject2()=>
 				if(payloads.Propose2_8.i2 < 0){
 					internal ! msg; done()
@@ -71,6 +111,14 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 					} else { tailcall(sendExternalChoice1(cont, external,0)) }
 				} else {
 				report("[MONITOR] VIOLATION in Assertion: i2 >= 0"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def sendConfirm_4(internal: In[Confirm_4], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		internal ? {
+			case msg @ Confirm_4() =>
+				external.send(msg)
+				done()
 			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
 		}
 	}

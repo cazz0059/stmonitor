@@ -1,0 +1,2 @@
+Reachable? |  Trace  
+No         |  ListBuffer(Propose1, Accept1, Confirm, Reject1, Propose2, Accept2, Confirm, Reject2, Propose3)
