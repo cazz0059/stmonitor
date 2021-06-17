@@ -22,7 +22,7 @@ class STParseTree(sessionType: SessionType, name: String) {
     textXML = textXML ++ statementPT(sessionType.statement)
     textXML = textXML ++ "</" ++ STname ++ ">"
 
-    print("\n" ++ textXML ++ "\n\n")//
+    //print("\n" ++ textXML ++ "\n\n")//
 
     val xmlText = XML.loadString(textXML)
 //    val parseTree = new PrettyPrinter(150, 4).format(xmlText)
@@ -32,7 +32,7 @@ class STParseTree(sessionType: SessionType, name: String) {
     //XML.save("examples/src/main/scala/monitor/examples/parseTrees/" ++ STname ++ "_" ++ name ++ "_parseTree.xml", xmlText)
     XML.save("examples/src/main/scala/examples/parseTrees/" ++ STname ++ "_" ++ name ++ "_parseTree.xml", xmlText)
     logger.info("XML file created")
-    println()
+    //println()
     //logger.info("XML text created")//
   }
 

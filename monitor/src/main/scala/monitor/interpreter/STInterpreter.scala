@@ -121,24 +121,21 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
     statement match {
       case statement @ ReceiveStatement(label, id, types, condition, _) =>
 
-        println("rec st")
         curScope = id
-        checkCondition(label, types, condition)
+        //checkCondition(label, types, condition)
         synthMon.handleReceive(statement, statement.continuation, scopes(curScope).isUnique) // Change isUnique accordingly
         synthProtocol.handleReceive(statement, scopes(curScope).isUnique, statement.continuation, getScope(statement.continuation).isUnique, null)
         walk(statement.continuation)
 
       case statement @ SendStatement(label, id, types, condition, _) =>
-        println("send st")
         curScope = id
-        checkCondition(label, types, condition)
+        //checkCondition(label, types, condition)
 
         synthMon.handleSend(statement, statement.continuation, scopes(curScope).isUnique) // Change isUnique accordingly
         synthProtocol.handleSend(statement, scopes(curScope).isUnique, statement.continuation, getScope(statement.continuation).isUnique, null)
         walk(statement.continuation)
 
       case statement @ ReceiveChoiceStatement(label, choices) =>
-        println("rec ch")
         curScope = label
         val tmpScope = curScope
         synthMon.handleReceiveChoice(statement)
@@ -146,7 +143,7 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
 
         for(choice <- choices) {
           curScope = choice.asInstanceOf[ReceiveStatement].statementID
-          checkCondition(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types, choice.asInstanceOf[ReceiveStatement].condition)
+          //checkCondition(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types, choice.asInstanceOf[ReceiveStatement].condition)
           synthProtocol.handleReceive(choice.asInstanceOf[ReceiveStatement], scopes(curScope).isUnique, choice.asInstanceOf[ReceiveStatement].continuation, getScope(choice.asInstanceOf[ReceiveStatement].continuation).isUnique, statement.label)
 
           walk(choice.asInstanceOf[ReceiveStatement].continuation)
@@ -154,7 +151,6 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         }
 
       case statement @ SendChoiceStatement(label, choices) =>
-        println("send ch")
         curScope = label
         val tmpScope = curScope
         synthMon.handleSendChoice(statement)
@@ -162,7 +158,7 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
 
         for(choice <- choices) {
           curScope = choice.asInstanceOf[SendStatement].statementID
-          checkCondition(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
+          //checkCondition(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
 
           synthProtocol.handleSend(choice.asInstanceOf[SendStatement], scopes(curScope).isUnique, choice.asInstanceOf[SendStatement].continuation, getScope(choice.asInstanceOf[SendStatement].continuation).isUnique, statement.label)
           walk(choice.asInstanceOf[SendStatement].continuation)
@@ -170,19 +166,15 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         }
 
       case statement @ RecursiveStatement(label, body) =>
-        println("recur st")
         walk(statement.body)
 
       case statement @ RecursiveVar(name, continuation) =>
-        println("recur var")
         checkRecVariable(scopes(curScope), statement)
         walk(statement.continuation)
 
       case End() =>
-        println("end")
 
       case null =>
-        println("null")
 
       }
   }
@@ -375,32 +367,32 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
    * @param condition The condition to type-check.
    * @return Whether the condition is of type boolean or not.
    */
-  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={
-    if(condition != null) {
-      var util = ""
-      if(condition.contains("util.")){
-        val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
-        util = try source.mkString finally source.close()
-        util = util.replaceFirst("package .*\n", "")
-        util = util.replace(preamble, "")
-      }
-      var stringVariables = ""
-      val identifiersInCondition = getIdentifiers(condition)
-      for(identName <- identifiersInCondition){
-        val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
-        stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
-      }
-      val eval = s"""
-           |$util
-           |$stringVariables
-           |$condition
-           |""".stripMargin
-      val tree = toolbox.parse(eval)
-      val checked = toolbox.typecheck(tree)
-      checked.tpe == Boolean
-    }
-    true
-  }
+//  private def checkCondition(label: String, types: Map[String, String], condition: String): Boolean ={
+//    if(condition != null) {
+//      var util = ""
+//      if(condition.contains("util.")){
+//        val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
+//        util = try source.mkString finally source.close()
+//        util = util.replaceFirst("package .*\n", "")
+//        util = util.replace(preamble, "")
+//      }
+//      var stringVariables = ""
+//      val identifiersInCondition = getIdentifiers(condition)
+//      for(identName <- identifiersInCondition){
+//        val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
+//        stringVariables = stringVariables+"val "+identName+": "+identifier._2+"= ???;"
+//      }
+//      val eval = s"""
+//           |$util
+//           |$stringVariables
+//           |$condition
+//           |""".stripMargin
+//      val tree = toolbox.parse(eval)
+//      val checked = toolbox.typecheck(tree)
+//      checked.tpe == Boolean
+//    }
+//    true
+//  }
 
   /**
    * Retrieves the information of an identifier.

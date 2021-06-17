@@ -13,7 +13,7 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 		}
 		object Accept1_2 {
 		}
-		object Confirm_1 {
+		object Confirm1_1 {
 		}
 		object Reject1_3 {
 		}
@@ -24,7 +24,7 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 		object Accept2_5 {
 			var check: Boolean = _
 		}
-		object Confirm_4 {
+		object Confirm2_4 {
 		}
 		object Reject2_6 {
 		}
@@ -59,8 +59,8 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 				if(payloads.Propose1_9.i > 0){
 					external.send(msg)
 					if (count < max) {
-						receiveConfirm_1(msg.cont, external, count+1)
-					} else { tailcall(receiveConfirm_1(msg.cont, external, 0)) }
+						receiveConfirm1_1(msg.cont, external, count+1)
+					} else { tailcall(receiveConfirm1_1(msg.cont, external, 0)) }
 				} else {
 				report("[MONITOR] VIOLATION in Assertion: i > 0"); done() }
 			case msg @ Reject1() =>
@@ -81,9 +81,9 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
 		}
 	}
-  def receiveConfirm_1(internal: Out[Confirm_1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+  def receiveConfirm1_1(internal: Out[Confirm1], external: ConnectionManager, count: Int): TailRec[Unit] = {
 		external.receive() match {
-			case msg @ Confirm_1()=>
+			case msg @ Confirm1()=>
 				internal ! msg; done()
 			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
 		}
@@ -94,8 +94,8 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 				if(util.validate(payloads.Propose1_9.i, msg.check)){
 					val cont = internal !! Accept2(msg.check)_
 					if (count < max) {
-						sendConfirm_4(cont, external, count+1)
-					} else { tailcall(sendConfirm_4(cont, external, 0)) }
+						sendConfirm2_4(cont, external, count+1)
+					} else { tailcall(sendConfirm2_4(cont, external, 0)) }
 				} else {
 				report("[MONITOR] VIOLATION in Assertion: util.validate(i, check)"); done() }
 			case msg @ Reject2()=>
@@ -114,9 +114,9 @@ class Monitor(external: ConnectionManager, internal: Out[Propose1], max: Int, re
 			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
 		}
 	}
-	def sendConfirm_4(internal: In[Confirm_4], external: ConnectionManager, count: Int): TailRec[Unit] = {
+	def sendConfirm2_4(internal: In[Confirm2], external: ConnectionManager, count: Int): TailRec[Unit] = {
 		internal ? {
-			case msg @ Confirm_4() =>
+			case msg @ Confirm2() =>
 				external.send(msg)
 				done()
 			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()

@@ -8,41 +8,134 @@ package monitor.parser
 import scala.meta._
 import monitor.model._
 import java.io.{File, PrintWriter}
+import scala.collection.mutable
 //import monitor.model.Scope
 import scala.collection.mutable.ListBuffer
 
 class STSolverHelper {
 
-  var fullTraces : Map[ListBuffer[String], Boolean] = Map()
+  var fullTraces : mutable.LinkedHashMap[ListBuffer[String], Boolean] = mutable.LinkedHashMap()
+
+  def addToTraces(currTrace : ListBuffer[String], verdict : Boolean) : Unit = {
+    //var fullTracesTemp = fullTraces + (currTrace -> verdict)
+    //fullTraces = fullTracesTemp
+    fullTraces += (currTrace -> verdict)
+    println("Added to fulltraces")
+    println(currTrace)
+  }
 
   def getCurrentTrace(statement: Statement, currentTrace : ListBuffer[String]) : Unit = { // ListBuffer[String]
-    var currTrace = currentTrace
+    //val currTrace = currentTrace
+
     statement match {
+
       case ReceiveStatement(label, id, types, condition, continuation) =>
-        currTrace += label
-        getCurrentTrace(continuation, currTrace)
+        val labelList : ListBuffer[String] = ListBuffer(label)
+        val currTrace : ListBuffer[String] = currentTrace ++ labelList
+        continuation match {
+          case End() =>
+            addToTraces(currTrace, true)
+          case null =>
+            addToTraces(currTrace, true)
+          case _ =>
+            getCurrentTrace(continuation, currTrace)
+        }
+
       case ReceiveChoiceStatement(label, choices) =>
-        for (choice <- choices)
-          getCurrentTrace(choice, currTrace)
+        for (choice <- choices) {
+          getCurrentTrace(choice, currentTrace)
+        }
+
       case SendStatement(label, id, types, condition, continuation) =>
-        currTrace += label
-        getCurrentTrace(continuation, currTrace)
+        val labelList : ListBuffer[String] = ListBuffer(label)
+        val currTrace : ListBuffer[String] = currentTrace ++ labelList
+        continuation match {
+          case End() =>
+            addToTraces(currTrace, true)
+          case null =>
+            addToTraces(currTrace, true)
+          case _ =>
+            getCurrentTrace(continuation, currTrace)
+        }
+
       case SendChoiceStatement(label, choices) =>
-        for (choice <- choices)
-          getCurrentTrace(choice, currTrace)
+        for (choice <- choices) {
+          getCurrentTrace(choice, currentTrace)
+        }
+
       case RecursiveStatement(label, body) =>
-        getCurrentTrace(body, currTrace)
+        getCurrentTrace(body, currentTrace)
+
       case RecursiveVar(name, continuation) =>
-        getCurrentTrace(continuation, currTrace)
+        getCurrentTrace(continuation, currentTrace)
+
       case End() =>
-        // add trace to the map
-        fullTraces = fullTraces + (currTrace -> true)
+        addToTraces(currentTrace, true)
+
+      case null =>
+        addToTraces(currentTrace, true)
     }
   }
 
-  def getAllTraces(sessionType : SessionType) : Map[ListBuffer[String], Boolean] = {
+  def updateTraces(traceLabels : List[String], allTraces : mutable.LinkedHashMap[ListBuffer[String], Boolean]) : mutable.LinkedHashMap[ListBuffer[String], Boolean] = {
+    var traces = allTraces
+    val fullTraceString = traceLabels.mkString(" ")
+    println("Using " + fullTraceString)
+    for (trc <- allTraces) {
+      val trcReversed = trc._1.toList.reverse // we do this as the traces saved here are reversed
+      val trcString = trcReversed.mkString(" ")
+      println("Comparing with " + trcString)
+
+      if (traceLabels.forall(trc._1.toList.contains)) {
+        //if (fullTrace.toList.canEqual(trc._1.toList)) {
+        //if (fullTraceString == trcString) {
+        println("Matched")
+        traces.put(trc._1, false)
+      }
+      else {
+        println("Unmatched")
+      }
+    }
+
+    traces
+  }
+
+//  def getCurrentTrace(statement: Statement, currentTrace : ListBuffer[String], len : Int) : Unit = { // ListBuffer[String]
+//    var currTrace = currentTrace
+//    statement match {
+//      case ReceiveStatement(label, id, types, condition, continuation) =>
+//        currTrace += label
+//        getCurrentTrace(continuation, currTrace)
+//      case ReceiveChoiceStatement(label, choices) =>
+//        for (choice <- choices)
+//          getCurrentTrace(choice, currTrace)
+//      case SendStatement(label, id, types, condition, continuation) =>
+//        currTrace += label
+//        getCurrentTrace(continuation, currTrace)
+//      case SendChoiceStatement(label, choices) =>
+//        for (choice <- choices)
+//          getCurrentTrace(choice, currTrace)
+//      case RecursiveStatement(label, body) =>
+//        getCurrentTrace(body, currTrace)
+//      case RecursiveVar(name, continuation) =>
+//        getCurrentTrace(continuation, currTrace)
+//      case End() =>
+//        // add trace to the map
+//        fullTraces = fullTraces + (currTrace -> true)
+//    }
+//  }
+
+  def getAllTraces(sessionType : SessionType) : mutable.LinkedHashMap[ListBuffer[String], Boolean] = {
     getCurrentTrace(sessionType.statement, ListBuffer())
     fullTraces
+  }
+
+  def printTrace(trace : ListBuffer[String]) : String = {
+    var traceString = ""
+    for(event <- trace) {
+      traceString = traceString + " > " + event
+    }
+    traceString
   }
 
   def aggCondsToString(aggConds : List[String]) : String = {
