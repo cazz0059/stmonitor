@@ -469,6 +469,7 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
       // getting util file contents
       val source = scala.io.Source.fromFile(path+"/util.scala", "utf-8")
       var util = try source.mkString finally source.close()
+//      println("\n ~ Util1 >>>\n " ++ util ++ "\n<<<")
       util = util.replaceFirst("package .*\n", "")
       util = util.replace(preamble, "")
       //println("[]")
@@ -484,9 +485,9 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
 //      println("Current scope: " + curScope)
 //      println("AggConds: " + stringAggConds)
 
-      //println("\n ~ Util >>>\n " ++ util ++ "\n<<<")
-      //println("\n ~ String Variables >>>\n " ++ stringVariables ++ "\n<<<")
-      //println("\n ~ String Condition >>>\n " ++ stringCondition ++ "\n<<<")
+//      println("\n ~ Util >>>\n " ++ util ++ "\n<<<")
+//      println("\n ~ String Variables >>>\n " ++ stringVariables ++ "\n<<<")
+//      println("\n ~ String Condition >>>\n " ++ stringAggConds ++ "\n<<<")
 
       val eval = s"""
                     |$util

@@ -1,0 +1,1 @@
+S_arithmetic = &{?Add(x : Int, y : Int)[util.add(x, y)].!Answer1(z : Int)[z == (x+y)], ?Negate(x : Int)[!(x==0)].!Answer2(z : Int)[z == (0-x)], ?Divide(x : Int, y : Int)[y > 0].!Answer3(z : Int)[(y != 0) && (util.divide(x, y, z))]}

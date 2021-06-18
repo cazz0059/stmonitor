@@ -1,0 +1,100 @@
+package examples.tests.protocols.recur
+
+import lchannels.{In, Out}
+import monitor.util.ConnectionManager
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.util.control.TailCalls.{TailRec, done, tailcall}
+class Monitor(external: ConnectionManager, internal: Out[InternalChoice3], max: Int, report: String => Unit)(implicit ec: ExecutionContext, timeout: Duration) extends Runnable {
+	object payloads {
+		object Offer_7 {
+		}
+		object Option1_3 {
+			var x: Int = _
+		}
+		object Accept1_1 {
+			var n: Int = _
+		}
+		object Reject1_2 {
+			var n: Int = _
+		}
+		object Option2_6 {
+			var x: Int = _
+		}
+		object Accept2_4 {
+			var n: Int = _
+		}
+		object Reject2_5 {
+			var n: Int = _
+		}
+	}
+	override def run(): Unit = {
+		report("[MONITOR] Monitor started, setting up connection manager")
+		external.setup()
+		receiveInternalChoice3(internal, external, 0).result
+    external.close()
+  }
+	def receiveInternalChoice3(internal: Out[InternalChoice3], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Offer()=>
+				val cont = internal !! Offer()_
+				if (count < max) {
+					sendExternalChoice1(cont, external, count+1)
+				} else { tailcall(sendExternalChoice1(cont, external,0)) }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def sendExternalChoice1(internal: In[ExternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		internal ? {
+			case msg @ Option1(_) =>
+				if(msg.x >= 0){
+					external.send(msg)
+			payloads.Option1_3.x = msg.x
+					if (count < max) {
+						receiveInternalChoice1(msg.cont, external, count+1)
+					} else { tailcall(receiveInternalChoice1(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: x >= 0"); done() }
+			case msg @ Option2(_) =>
+				if(msg.x < 0){
+					external.send(msg)
+			payloads.Option2_6.x = msg.x
+					if (count < max) {
+						receiveInternalChoice2(msg.cont, external, count+1)
+					} else { tailcall(receiveInternalChoice2(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: x < 0"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def receiveInternalChoice1(internal: Out[InternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Accept1(_)=>
+				if(util.noRecur(payloads.Option1_3.x, msg.n)){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: util.noRecur(x, n)"); done() }
+			case msg @ Reject1(_)=>
+				if(!util.noRecur(payloads.Option1_3.x, msg.n)){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: !util.noRecur(x, n)"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def receiveInternalChoice2(internal: Out[InternalChoice2], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Accept2(_)=>
+				if(util.noRecur(payloads.Option2_6.x, msg.n)){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: util.noRecur(x, n)"); done() }
+			case msg @ Reject2(_)=>
+				if(!util.noRecur(payloads.Option2_6.x, msg.n)){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: !util.noRecur(x, n)"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+}

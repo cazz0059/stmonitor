@@ -1,0 +1,3 @@
+Reachable? |  Trace  
+No         |   > M1 > M2
+Yes        |   > M1 > M3

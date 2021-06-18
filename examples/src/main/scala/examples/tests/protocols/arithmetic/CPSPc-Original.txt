@@ -1,0 +1,15 @@
+package examples.tests.protocols.arithmetic
+import lchannels.Out
+sealed abstract class ExternalChoice1
+case class Add(x: Int, y: Int)(val cont: Out[InternalChoice1]) extends ExternalChoice1
+sealed abstract class InternalChoice1
+case class Answer1(z: Int) extends InternalChoice1
+case class Invalid1(z: Int) extends InternalChoice1
+case class Negate(x: Int)(val cont: Out[InternalChoice2]) extends ExternalChoice1
+sealed abstract class InternalChoice2
+case class Answer2(z: Int) extends InternalChoice2
+case class Invalid2() extends InternalChoice2
+case class Divide(x: Int, y: Int)(val cont: Out[InternalChoice3]) extends ExternalChoice1
+sealed abstract class InternalChoice3
+case class Answer3(z: Int) extends InternalChoice3
+case class Invalid3() extends InternalChoice3

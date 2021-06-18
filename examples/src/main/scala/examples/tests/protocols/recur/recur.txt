@@ -6,6 +6,17 @@ hence hitting two birds with one stone
 this doesnt count as repetition as the first branches are the same
 in addition, lemmas only save the redundant branch conditions
 
+
+// very dumb test
+// the goal is to unfold the loops and functions correctly
+// and find the redundancy when compared to the conditions in the corresponding branch trace
+
+// recursion wont work because the functions have the same names
+
+old version reject1 and accept2 are kept
+new version accept1 and reject2 are kept
+table saved in sep text file is with error, check call in first condition
+
 object util {
   def repeat(x : Int): Boolean ={
     if (x < 5){
@@ -27,7 +38,7 @@ def recur(x : Int): Boolean ={
     else {
       check(x)
     }
-  }
+}
 
 
 
@@ -81,3 +92,27 @@ what i can do is take the condition and its negation, assert the conditions to t
           (and (not (and (= n n) (= x x) (or a!1 a!5))) (>= x 0)))))
 
 
+
+//  def noRecur1(x : Int, n : Int) : Boolean = {
+//    if((n > 0) && (x != 0)){
+//      check(x, n)
+//    }
+//    else if ((n < 0) && (x != 0)){
+//      check(x, -n)
+//    }
+//    else {
+//      x >= 0// (n == 0) || (x == 0)
+//    }
+//  }
+
+//  	if(x >= 0){
+//			true // x >= 0
+//  	}
+//  	else {
+//			false
+//  	}
+
+
+//  def check2(x2 : Int): Boolean ={
+//    x2 != 5
+//  }

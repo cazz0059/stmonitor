@@ -1,0 +1,14 @@
+package examples.tests.protocols.recur
+
+import lchannels.Out
+sealed abstract class InternalChoice3
+case class Offer()(val cont: Out[ExternalChoice1]) extends InternalChoice3
+sealed abstract class ExternalChoice1
+case class Option1(x: Int)(val cont: Out[InternalChoice1]) extends ExternalChoice1
+sealed abstract class InternalChoice1
+case class Accept1(n: Int) extends InternalChoice1
+case class Reject1(n: Int) extends InternalChoice1
+case class Option2(x: Int)(val cont: Out[InternalChoice2]) extends ExternalChoice1
+sealed abstract class InternalChoice2
+case class Accept2(n: Int) extends InternalChoice2
+case class Reject2(n: Int) extends InternalChoice2

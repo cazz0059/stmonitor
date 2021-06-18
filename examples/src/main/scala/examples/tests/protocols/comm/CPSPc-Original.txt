@@ -1,0 +1,7 @@
+package examples.tests.protocols.comm
+
+import lchannels.{In, Out}
+case class M1(x: Int)(val cont: Out[ExternalChoice1])
+sealed abstract class ExternalChoice1
+case class M2(msg: String) extends ExternalChoice1
+case class M3(msg: String)(val cont: In[ExternalChoice1]) extends ExternalChoice1

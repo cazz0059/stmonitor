@@ -1,0 +1,7 @@
+Reachable? |  Trace  
+Yes        |   > Add > Answer1
+No         |   > Add > Invalid1
+Yes        |   > Negate > Answer2
+No         |   > Negate > Invalid2
+Yes        |   > Divide > Answer3
+No         |   > Divide > Invalid3

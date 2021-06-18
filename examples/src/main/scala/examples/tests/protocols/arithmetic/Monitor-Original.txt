@@ -1,0 +1,122 @@
+package examples.tests.protocols.arithmetic
+import lchannels.{In, Out}
+import monitor.util.ConnectionManager
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.util.control.TailCalls.{TailRec, done, tailcall}
+class Monitor(external: ConnectionManager, internal: In[ExternalChoice1], max: Int, report: String => Unit)(implicit ec: ExecutionContext, timeout: Duration) extends Runnable {
+	object payloads {
+		object Add_3 {
+			var x: Int = _
+			var y: Int = _
+		}
+		object Answer1_1 {
+			var z: Int = _
+		}
+		object Invalid1_2 {
+			var z: Int = _
+		}
+		object Negate_6 {
+			var x: Int = _
+		}
+		object Answer2_4 {
+			var z: Int = _
+		}
+		object Invalid2_5 {
+		}
+		object Divide_9 {
+			var x: Int = _
+			var y: Int = _
+		}
+		object Answer3_7 {
+			var z: Int = _
+		}
+		object Invalid3_8 {
+		}
+	}
+	override def run(): Unit = {
+		report("[MONITOR] Monitor started, setting up connection manager")
+		external.setup()
+		sendExternalChoice1(internal, external, 0).result
+    external.close()
+  }
+	def sendExternalChoice1(internal: In[ExternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		internal ? {
+			case msg @ Add(_, _) =>
+				if(util.add(msg.x, msg.y)){
+					external.send(msg)
+			payloads.Add_3.x = msg.x
+			payloads.Add_3.y = msg.y
+					if (count < max) {
+						receiveInternalChoice1(msg.cont, external, count+1)
+					} else { tailcall(receiveInternalChoice1(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: util.add(x, y)"); done() }
+			case msg @ Negate(_) =>
+				if(!(msg.x==0)){
+					external.send(msg)
+			payloads.Negate_6.x = msg.x
+					if (count < max) {
+						receiveInternalChoice2(msg.cont, external, count+1)
+					} else { tailcall(receiveInternalChoice2(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: !(x==0)"); done() }
+			case msg @ Divide(_, _) =>
+				if(msg.y > 0){
+					external.send(msg)
+			payloads.Divide_9.x = msg.x
+			payloads.Divide_9.y = msg.y
+					if (count < max) {
+						receiveInternalChoice3(msg.cont, external, count+1)
+					} else { tailcall(receiveInternalChoice3(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: y > 0"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def receiveInternalChoice1(internal: Out[InternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Answer1(_)=>
+				if(msg.z == (payloads.Add_3.x+payloads.Add_3.y)){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: z == (x+y)"); done() }
+			case msg @ Invalid1(_)=>
+				if((msg.z < payloads.Add_3.x) || (msg.z < payloads.Add_3.y)){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: (z < x) || (z < y)"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def receiveInternalChoice2(internal: Out[InternalChoice2], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Answer2(_)=>
+				if(msg.z == (0-payloads.Negate_6.x)){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: z == (0-x)"); done() }
+			case msg @ Invalid2()=>
+				if(payloads.Negate_6.x == 0){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: x == 0"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def receiveInternalChoice3(internal: Out[InternalChoice3], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Answer3(_)=>
+				if((payloads.Divide_9.y != 0) && (util.divide(payloads.Divide_9.x, payloads.Divide_9.y, msg.z))){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: (y != 0) && (util.divide(x, y, z))"); done() }
+			case msg @ Invalid3()=>
+				if(payloads.Divide_9.y < 0){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: y < 0"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+}

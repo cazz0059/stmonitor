@@ -1,0 +1,5 @@
+Reachable? |  Trace
+Yes        |   > Offer > Option1 > Accept1
+Yes        |   > Offer > Option1 > Reject1
+No         |   > Offer > Option2 > Accept2
+Yes        |   > Offer > Option2 > Reject2
