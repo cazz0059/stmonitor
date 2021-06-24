@@ -1,0 +1,7 @@
+Reachable? |  Trace  
+No         |   > Ask > Yes > Guess1 > Correct1
+Yes        |   > Ask > Yes > Guess1 > Incorrect1
+Yes        |   > Ask > Yes > Quit
+No         |   > Ask > No > Guess2 > Correct2
+Yes        |   > Ask > No > Guess2 > Incorrect2
+Yes        |   > Ask > No > Quit

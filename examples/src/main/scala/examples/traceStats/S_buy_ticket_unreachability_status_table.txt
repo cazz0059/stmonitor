@@ -1,0 +1,3 @@
+Reachable? |  Trace  
+No         |   > Request > Quote > Check > Approve > Ticket
+Yes        |   > Request > Quote > Check > Refuse

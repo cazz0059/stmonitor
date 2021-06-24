@@ -8,26 +8,16 @@ import scala.reflect.runtime._
 import scala.reflect.runtime.universe._
 import scala.tools.reflect.ToolBox
 
-//import scala.meta._
-
 import com.microsoft.z3._
 
 import java.io._
 
-//import smtlib.parser.ParserCommands
-//import smtlib.parser.ParserTerms
-//import smtlib.theories.Core.{Not, Or}
-
 import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
-
-//import z3
 
 import com.typesafe.scalalogging.Logger
 
 class STSolver(sessionType : SessionType, path: String, preamble: String){
-
-  // modify original session type
 
   val logger: Logger = Logger("STSolver")
 
@@ -48,8 +38,6 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
     print("Pausing...")
     scala.io.StdIn.readLine()
   }
-
-  //private var branches = new mutable.HashMap[Statement, String]()
 
   def getRecursiveVarScope(recursiveVar: RecursiveVar): Scope = {
     checkRecVariable(scopes(curScope), recursiveVar)
@@ -77,32 +65,18 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
 
 
   def run() : SessionType = {
-//    sessionType.statement match { // this part might all be useless
-//      case recursiveStatement: RecursiveStatement =>
-//        var tmpStatement: Statement = null
-//        while(tmpStatement.isInstanceOf[RecursiveStatement]){
-//          tmpStatement = recursiveStatement.body
-//        }
-//        checkStatement(recursiveStatement.body) // check if this is the right method, because in interpreter it is that
-//                                                // monitor is initialised, not the whole statement checked
-//      case _ =>
-//        checkStatement(sessionType.statement) // same here
-//    }
     println(allTraces)
     pause()
 
 
     initialWalk(sessionType.statement)
     curScope = "global"
-    //println()
     logger.info("Initial Walk Complete")
-    //println()
 
     // getting util file contents
     val source = scala.io.Source.fromFile(path + "/util.scala", "utf-8")
     val util = try source.mkString finally source.close()
     generateUtilFunctionModels(util)
-    //println("Util function generated ##")
 
     solvedST.name = sessionType.name
     solvedST.statement = walk(sessionType.statement)
@@ -122,21 +96,19 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
     pw.write(table)
     pw.close
 
-    solvedST//sessionType
+    solvedST
   }
 
   def initialWalk(root: Statement): Unit = {
     root match {
       case ReceiveStatement(label, id, types, condition, continuation) =>
         createAndUpdateScope(label) // creates new scope
-        checkAndInitVariables(label, types, condition) // puts vars in scopes
-        //handlePayloads(label, types) // synths variables in monitor
+        checkAndInitVariables(label, types, condition) // puts the variables in the scopes
         initialWalk(continuation)
 
       case SendStatement(label, id, types, condition, continuation) =>
         createAndUpdateScope(label)
         checkAndInitVariables(label, types, condition)
-        //handlePayloads(label, types)
         initialWalk(continuation)
 
       case ReceiveChoiceStatement(label, choices) =>
@@ -144,7 +116,6 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
         for(choice <- choices) {
           createAndUpdateScope(choice.asInstanceOf[ReceiveStatement].label)
           checkAndInitVariables(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types, choice.asInstanceOf[ReceiveStatement].condition)
-          //handlePayloads(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types)
           initialWalk(choice.asInstanceOf[ReceiveStatement].continuation)
           curScope = scopes(choice.asInstanceOf[ReceiveStatement].label).parentScope.name
         }
@@ -154,7 +125,6 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
         for(choice <- choices) {
           createAndUpdateScope(choice.asInstanceOf[SendStatement].label)
           checkAndInitVariables(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
-          //handlePayloads(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types)
           initialWalk(choice.asInstanceOf[SendStatement].continuation)
           curScope = scopes(choice.asInstanceOf[SendStatement].label).parentScope.name
         }
@@ -170,11 +140,9 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
     }
   }
 
-  // this one should do all the solving stuff while traversing
   def walk(statement: Statement): Statement = {
     statement match {
       case statement @ ReceiveStatement(label, id, types, condition, _) =>
-        //logger.info("Receive "+label+"("+types+")")
         curScope = label
         // get current conditions and make them into clauses
         // add them to the set of condition clauses by getting set in prev scope and adding current to these
@@ -183,9 +151,6 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
         checkCondition(label, types, condition)
         val trace = scopes(curScope).trace
 
-        // "rebuild parse tree" functions here
-        //handleReceive(statement, statement.continuation)
-        //println("Verdict : " + scopes(curScope).getAssertions)
         if(condition == null || solver(trace)) {
           ReceiveStatement(label, id, types, condition, walk(statement.continuation))
         }
@@ -355,24 +320,8 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
 
     val conditionTree = toolbox.parse(condition)
 
-    // post exams notes
-    // this currently just gets current condition. i need to store all conditions of a trace
-
-//    print("~~~ CONDITION TREE ~~~\n")
-//    print(" - Normal\n")
-//    print(show(conditionTree))
-//    print("\n - Raw\n")
-//    print(showRaw(conditionTree))
-//    print("\n")
-
     val traverser = new traverser
     traverser.traverse(conditionTree)
-    //print("\n" ++ traverser. ++ "\n\n") // see what more i can do with this traversed tree
-    // i can do this after i allow traverse to have more than identifiers as an attribute
-    // print clauses here instead of just list of idents
-    //print(" - To Return:\n" ++ traverser.identifiers.distinct.filter(_ != "util").toString() ++ "\n\n")
-
-    // maybe all the above can be done using the new models implemented?
     traverser.identifiers.distinct.filter(_ != "util")
   }
 
@@ -485,7 +434,7 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
 //      println("Current scope: " + curScope)
 //      println("AggConds: " + stringAggConds)
 
-//      println("\n ~ Util >>>\n " ++ util ++ "\n<<<")
+//      println("\n ~ Util >>>\n " ++ util.toString ++ "\n<<<")
 //      println("\n ~ String Variables >>>\n " ++ stringVariables ++ "\n<<<")
 //      println("\n ~ String Condition >>>\n " ++ stringAggConds ++ "\n<<<")
 

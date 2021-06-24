@@ -1,15 +1,9 @@
 package monitor.parser
 
-//import scala.collection.mutable
-//import scala.reflect.runtime._
-//import scala.reflect.runtime.universe._
-//import scala.tools.reflect.ToolBox
-
 import scala.meta._
 import monitor.model._
 import java.io.{File, PrintWriter}
 import scala.collection.mutable
-//import monitor.model.Scope
 import scala.collection.mutable.ListBuffer
 
 class STSolverHelper {
@@ -17,15 +11,12 @@ class STSolverHelper {
   var fullTraces : mutable.LinkedHashMap[ListBuffer[String], Boolean] = mutable.LinkedHashMap()
 
   def addToTraces(currTrace : ListBuffer[String], verdict : Boolean) : Unit = {
-    //var fullTracesTemp = fullTraces + (currTrace -> verdict)
-    //fullTraces = fullTracesTemp
     fullTraces += (currTrace -> verdict)
     println("Added to fulltraces")
     println(currTrace)
   }
 
-  def getCurrentTrace(statement: Statement, currentTrace : ListBuffer[String]) : Unit = { // ListBuffer[String]
-    //val currTrace = currentTrace
+  def getCurrentTrace(statement: Statement, currentTrace : ListBuffer[String]) : Unit = {
 
     statement match {
 
@@ -82,13 +73,12 @@ class STSolverHelper {
     val fullTraceString = traceLabels.mkString(" ")
     println("Using " + fullTraceString)
     for (trc <- allTraces) {
-      val trcReversed = trc._1.toList.reverse // we do this as the traces saved here are reversed
+      // Reversing the order
+      val trcReversed = trc._1.toList.reverse
       val trcString = trcReversed.mkString(" ")
       println("Comparing with " + trcString)
 
       if (traceLabels.forall(trc._1.toList.contains)) {
-        //if (fullTrace.toList.canEqual(trc._1.toList)) {
-        //if (fullTraceString == trcString) {
         println("Matched")
         traces.put(trc._1, false)
       }
@@ -99,31 +89,6 @@ class STSolverHelper {
 
     traces
   }
-
-//  def getCurrentTrace(statement: Statement, currentTrace : ListBuffer[String], len : Int) : Unit = { // ListBuffer[String]
-//    var currTrace = currentTrace
-//    statement match {
-//      case ReceiveStatement(label, id, types, condition, continuation) =>
-//        currTrace += label
-//        getCurrentTrace(continuation, currTrace)
-//      case ReceiveChoiceStatement(label, choices) =>
-//        for (choice <- choices)
-//          getCurrentTrace(choice, currTrace)
-//      case SendStatement(label, id, types, condition, continuation) =>
-//        currTrace += label
-//        getCurrentTrace(continuation, currTrace)
-//      case SendChoiceStatement(label, choices) =>
-//        for (choice <- choices)
-//          getCurrentTrace(choice, currTrace)
-//      case RecursiveStatement(label, body) =>
-//        getCurrentTrace(body, currTrace)
-//      case RecursiveVar(name, continuation) =>
-//        getCurrentTrace(continuation, currTrace)
-//      case End() =>
-//        // add trace to the map
-//        fullTraces = fullTraces + (currTrace -> true)
-//    }
-//  }
 
   def getAllTraces(sessionType : SessionType) : mutable.LinkedHashMap[ListBuffer[String], Boolean] = {
     getCurrentTrace(sessionType.statement, ListBuffer())
@@ -165,9 +130,9 @@ class STSolverHelper {
         }
         if (types.nonEmpty) receiveStatement = receiveStatement.dropRight(2)
         receiveStatement = receiveStatement + ")"
-        if (condition != null) { // condition.terms.nonEmpty
+        if (condition != null) {
           receiveStatement = receiveStatement ++ "["
-          receiveStatement = receiveStatement ++ condition // expressionPT(condition)
+          receiveStatement = receiveStatement ++ condition
           receiveStatement = receiveStatement ++ "]"
         }
 
@@ -204,9 +169,9 @@ class STSolverHelper {
         }
         if (types.nonEmpty) sendStatement = sendStatement.dropRight(2)
         sendStatement = sendStatement + ")"
-        if (condition != null) { // condition.terms.nonEmpty
+        if (condition != null) {
           sendStatement = sendStatement ++ "["
-          sendStatement = sendStatement ++ condition // expressionPT(condition)
+          sendStatement = sendStatement ++ condition
           sendStatement = sendStatement ++ "]"
         }
 
@@ -244,7 +209,7 @@ class STSolverHelper {
 
       case RecursiveVar(name, continuation) =>
         var recursiveVar = name
-        if (continuation != null) {
+        if ((continuation != null) && (continuation != End())) {
           recursiveVar = recursiveVar + "." + rebuilding(continuation)
         }
         recursiveVar

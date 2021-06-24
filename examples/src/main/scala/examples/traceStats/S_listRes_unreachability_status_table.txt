@@ -1,0 +1,4 @@
+Reachable? |  Trace  
+Yes        |   > Request > Ok > Response
+Yes        |   > Request > Ok > Completed
+Yes        |   > Request > Error

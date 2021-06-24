@@ -1,0 +1,5 @@
+Reachable? |  Trace  
+Yes        |   > TwoTwoZero > TwoFiveZeroDash
+No         |   > TwoTwoZero > TwoFiveZero > Data > Subject
+No         |   > TwoTwoZero > TwoFiveZero > Data > Dataline
+No         |   > TwoTwoZero > TwoFiveZero > Data > atad

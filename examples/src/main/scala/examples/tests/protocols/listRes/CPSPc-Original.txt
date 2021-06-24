@@ -1,0 +1,10 @@
+package examples.tests.protocols.listRes
+
+import lchannels.{In, Out}
+case class Request(certificate: String, subject: String, resource_kind: String, operation: String, resource: String)(val cont: Out[InternalChoice2])
+sealed abstract class InternalChoice2
+case class Ok()(val cont: In[InternalChoice1]) extends InternalChoice2
+sealed abstract class InternalChoice1
+case class Response(element: String)(val cont: In[InternalChoice1]) extends InternalChoice1
+case class Completed() extends InternalChoice1
+case class Error(reason: String) extends InternalChoice2

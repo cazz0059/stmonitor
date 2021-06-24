@@ -1,0 +1,3 @@
+Reachable? |  Trace  
+Yes        |   > Get > Confirm
+No         |   > Get > Deny

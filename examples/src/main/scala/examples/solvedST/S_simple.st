@@ -1,1 +1,1 @@
-S_simple = rec X.(!Get(ans : Boolean)[ans && util.redundant()].?Confirm(msg : String)[ans])
+S_simple = rec X.(?Get(ans : Boolean)[ans && util.redundant()].!Confirm(msg : String)[ans])

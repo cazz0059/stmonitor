@@ -1,0 +1,20 @@
+package examples.tests.protocols.game2
+
+import lchannels.Out
+sealed abstract class InternalChoice3
+case class Ask()(val cont: Out[ExternalChoice3]) extends InternalChoice3
+sealed abstract class ExternalChoice3
+case class Yes(answer: Boolean)(val cont: Out[InternalChoice1]) extends ExternalChoice3
+sealed abstract class InternalChoice1
+case class Guess1(num: Int)(val cont: Out[ExternalChoice1]) extends InternalChoice1
+sealed abstract class ExternalChoice1
+case class Correct1(ans: Int) extends ExternalChoice1
+case class Incorrect1()(val cont: Out[InternalChoice3]) extends ExternalChoice1
+case class Quit_4() extends InternalChoice1
+case class No(answer: Boolean)(val cont: Out[InternalChoice2]) extends ExternalChoice3
+sealed abstract class InternalChoice2
+case class Guess2(num: Int)(val cont: Out[ExternalChoice2]) extends InternalChoice2
+sealed abstract class ExternalChoice2
+case class Correct2(ans: Int) extends ExternalChoice2
+case class Incorrect2()(val cont: Out[InternalChoice3]) extends ExternalChoice2
+case class Quit_9() extends InternalChoice2

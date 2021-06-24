@@ -1,0 +1,12 @@
+package examples.tests.protocols.SMTP_C
+
+import lchannels.{In, Out}
+case class TwoTwoZero(option: Int)(val cont: In[ExternalChoice1])
+sealed abstract class ExternalChoice1
+case class TwoFiveZeroDash(string: String)(val cont: In[ExternalChoice1]) extends ExternalChoice1
+case class TwoFiveZero(choice: Int)(val cont: Out[Data]) extends ExternalChoice1
+case class Data(data: String)(val cont: In[InternalChoice1])
+sealed abstract class InternalChoice1
+case class Subject(subject: String)(val cont: In[InternalChoice1]) extends InternalChoice1
+case class Dataline(dataline: String)(val cont: In[InternalChoice1]) extends InternalChoice1
+case class atad(dot: Int)(val cont: In[Data]) extends InternalChoice1

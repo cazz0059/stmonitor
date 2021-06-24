@@ -1,0 +1,113 @@
+package examples.tests.protocols.SMTP_C
+
+import lchannels.{In, Out}
+import monitor.util.ConnectionManager
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.util.control.TailCalls.{TailRec, done, tailcall}
+class Monitor(external: ConnectionManager, internal: In[TwoTwoZero], max: Int, report: String => Unit)(implicit ec: ExecutionContext, timeout: Duration) extends Runnable {
+	object payloads {
+		object TwoTwoZero_7 {
+			var option: Int = _
+		}
+		object TwoFiveZeroDash_1 {
+			var string: String = _
+		}
+		object TwoFiveZero_6 {
+			var choice: Int = _
+		}
+		object Data_5 {
+			var data: String = _
+		}
+		object Subject_2 {
+			var subject: String = _
+		}
+		object Dataline_3 {
+			var dataline: String = _
+		}
+		object atad_4 {
+			var dot: Int = _
+		}
+	}
+	override def run(): Unit = {
+		report("[MONITOR] Monitor started, setting up connection manager")
+		external.setup()
+		sendTwoTwoZero_7(internal, external, 0).result
+    external.close()
+  }
+	def sendTwoTwoZero_7(internal: In[TwoTwoZero], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		internal ? {
+			case msg @ TwoTwoZero(_) =>
+				if((msg.option == 1) || (msg.option == 2)){
+					external.send(msg)
+			payloads.TwoTwoZero_7.option = msg.option
+					if (count < max) {
+						sendExternalChoice1(msg.cont, external, count+1)
+					} else { tailcall(ExternalChoice1(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: (option == 1) || (option == 2)"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def sendExternalChoice1(internal: In[ExternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		internal ? {
+			case msg @ TwoFiveZeroDash(_) =>
+				external.send(msg)
+				if (count < max) {
+					sendExternalChoice1(msg.cont, external, count+1)
+				} else { tailcall(sendExternalChoice1(msg.cont, external, 0)) }
+			case msg @ TwoFiveZero(_) =>
+				if((msg.choice == payloads.TwoTwoZero_7.option) && (payloads.TwoTwoZero_7.option == 1)){
+					external.send(msg)
+			payloads.TwoFiveZero_6.choice = msg.choice
+					if (count < max) {
+						receiveData_5(msg.cont, external, count+1)
+					} else { tailcall(receiveData_5(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: (choice == option) && (option == 1)"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+  def receiveData_5(internal: Out[Data], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Data(_)=>
+				if((payloads.TwoFiveZero_6.choice == 3) || (payloads.TwoFiveZero_6.choice == 4) || (payloads.TwoFiveZero_6.choice == 5)){
+					val cont = internal !! Data(msg.data)_
+					if (count < max) {
+						receiveInternalChoice1(cont, external, count+1)
+					} else { tailcall(receiveInternalChoice1(cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: (choice == 3) || (choice == 4) || (choice == 5)"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def receiveInternalChoice1(internal: Out[InternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Subject(_)=>
+				if(payloads.TwoFiveZero_6.choice == 3){
+					val cont = internal !! Subject(msg.subject)_
+					if (count < max) {
+						receiveInternalChoice1(cont, external, count+1)
+					} else { tailcall(receiveInternalChoice1(cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: choice == 3"); done() }
+			case msg @ Dataline(_)=>
+				if(payloads.TwoFiveZero_6.choice == 4){
+					val cont = internal !! Dataline(msg.dataline)_
+					if (count < max) {
+						receiveInternalChoice1(cont, external, count+1)
+					} else { tailcall(receiveInternalChoice1(cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: choice == 4"); done() }
+			case msg @ atad(_)=>
+				if((payloads.TwoFiveZero_6.choice == 5) && (msg.dot == 6)){
+					val cont = internal !! atad(msg.dot)_
+					if (count < max) {
+						receiveData_5(cont, external,count+1)
+					} else { tailcall(receiveData_5(cont, external,0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: (choice == 5) && (dot == 6)"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+}

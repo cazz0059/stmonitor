@@ -1,0 +1,10 @@
+package examples.tests.protocols.buyTicket
+
+import lchannels.{In, Out}
+case class Request(travel: String)(val cont: Out[Quote])
+case class Quote(quote: Int)(val cont: Out[Check])
+case class Check(payment: Int)(val cont: Out[InternalChoice1])
+sealed abstract class InternalChoice1
+case class Approve(code: String)(val cont: In[Ticket]) extends InternalChoice1
+case class Ticket(ticket: String)
+case class Refuse(message: String) extends InternalChoice1

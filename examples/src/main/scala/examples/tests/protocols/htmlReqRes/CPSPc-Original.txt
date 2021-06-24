@@ -1,0 +1,7 @@
+package examples.tests.protocols.htmlReqRes
+
+import lchannels.Out
+case class Get(s: String)(val cont: Out[InternalChoice1])
+sealed abstract class InternalChoice1
+case class Sc200(s2: String) extends InternalChoice1
+case class Sc500(reason: String) extends InternalChoice1
