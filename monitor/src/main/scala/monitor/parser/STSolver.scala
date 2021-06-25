@@ -15,11 +15,8 @@ import java.io._
 import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
-import com.typesafe.scalalogging.Logger
 
 class STSolver(sessionType : SessionType, path: String, preamble: String){
-
-  val logger: Logger = Logger("STSolver")
 
   private val toolbox = currentMirror.mkToolBox()
 
@@ -34,10 +31,10 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
 
   private var allTraces : mutable.LinkedHashMap[ListBuffer[String], Boolean] = helper.getAllTraces(sessionType)
 
-  def pause() : Unit = {
-    print("Pausing...")
-    scala.io.StdIn.readLine()
-  }
+//  def pause() : Unit = {
+//    print("Pausing...")
+//    scala.io.StdIn.readLine()
+//  }
 
   def getRecursiveVarScope(recursiveVar: RecursiveVar): Scope = {
     checkRecVariable(scopes(curScope), recursiveVar)
@@ -65,13 +62,12 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
 
 
   def run() : SessionType = {
-    println(allTraces)
-    pause()
+//    println(allTraces)
+//    pause()
 
 
     initialWalk(sessionType.statement)
     curScope = "global"
-    logger.info("Initial Walk Complete")
 
     // getting util file contents
     val source = scala.io.Source.fromFile(path + "/util.scala", "utf-8")
@@ -455,6 +451,21 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
 //
 //  }
 
+  def solverUnopt(trace : List[(String, String)]) : Boolean = {
+    var aggConds = helper.aggCondsToString(scopes(curScope).getAssertions)
+
+    var variables : Map[String, String] = Map()
+    val identifiersInAggConds = getAggIdentifiers(List(aggConds))
+    for(identName <- identifiersInAggConds){
+      val identifier = scopes(searchIdent(curScope, identName)).variables(identName)
+      //println("val "+identName+": "+identifier._2+"= ???;")
+      variables = variables + (identName -> identifier._2)
+    }
+
+    var (condTree, boolExpr, sat) = executeSolver(aggConds, variables)
+    sat
+  }
+
   def solver(trace : List[(String, String)]): Boolean ={ // currentCond : String, traceLabels : List[String], aggConds : List[String]
     //println(" ::::::::::::::::: SOLVER ::::::::::::::::::::")
 
@@ -464,9 +475,9 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
     val currCond = aggConds.head
 
     if((traceLabels != null) && (aggConds != null)) {
-      println("\n ~ Trace >>>\n " ++ traceLabels.toString() ++ "\n<<<")
-      println("\n ~ Conditions >>>\n " ++ aggConds.toString() ++ "\n<<<")
-      pause()
+//      println("\n ~ Trace >>>\n " ++ traceLabels.toString() ++ "\n<<<")
+//      println("\n ~ Conditions >>>\n " ++ aggConds.toString() ++ "\n<<<")
+//      pause()
       // this is in the solver itself, no need
 //      val parsedConditions = toolbox.parse(conditions)
 //      println("\n ~ Parsed Conditions >>>\n " ++ parsedConditions.toString() ++ "\n<<<")
@@ -595,9 +606,9 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
                   }
                   //println("##################### Tested conditions")
                   if (!sat) {
-                    println("THIS BRANCH IS UNREACHABLE")
-                    println("UNSATISFIABLE CONDITIONS")
-                    println(aggCondsString)
+//                    println("THIS BRANCH IS UNREACHABLE")
+//                    println("UNSATISFIABLE CONDITIONS")
+//                    println(aggCondsString)
                     if (!matchLemma) {
                       if (aggToTree.isEmpty) // creates the tree if not yet created - "avoids unnecessary scala meta term parsing"
                         aggToTree = helper.aggCondsToTree(event._2 :: tempCurrEvent.map(ev => ev._2))
@@ -622,16 +633,16 @@ class STSolver(sessionType : SessionType, path: String, preamble: String){
             }
           }
           if (sat) {
-            println("THIS BRANCH IS REACHABLE")
+            //println("THIS BRANCH IS REACHABLE")
           }
         }
 
         sat
       }
       else {
-        println("THIS BRANCH IS UNREACHABLE - IMMEDIATE LEMMA MISMATCH")
-        println("UNSATISFIABLE CONDITIONS")
-        println(currCond)
+//        println("THIS BRANCH IS UNREACHABLE - IMMEDIATE LEMMA MISMATCH")
+//        println("UNSATISFIABLE CONDITIONS")
+//        println(currCond)
 
         // updating trace status
         allTraces = helper.updateTraces(traceLabels, allTraces)

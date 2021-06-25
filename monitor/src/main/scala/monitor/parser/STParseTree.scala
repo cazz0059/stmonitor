@@ -7,21 +7,18 @@ import scala.xml.{PrettyPrinter, XML}
 
 class STParseTree(sessionType: SessionType, name: String) {
 
-  val logger = Logger("STParseTree")
   val helper = new STSolverHelper()
 
   def construct() : Unit = {
     var textXML = ""
 
     val STname = sessionType.name
-    logger.info("Starting construction")
     textXML = textXML ++ "<" ++ STname ++ ">"
     textXML = textXML ++ statementPT(sessionType.statement)
     textXML = textXML ++ "</" ++ STname ++ ">"
 
     val xmlText = XML.loadString(textXML)
     XML.save("examples/src/main/scala/examples/parseTrees/" ++ STname ++ "_" ++ name ++ "_parseTree.xml", xmlText)
-    logger.info("XML file created")
   }
 
   def statementPT(root : Statement) : String = {

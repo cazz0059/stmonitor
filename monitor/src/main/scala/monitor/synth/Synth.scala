@@ -43,6 +43,8 @@ class Synth {
             return
         }
 
+        val t1 = System.nanoTime
+
         val solver = new STSolver(r, directoryPath, preambleFile.getOrElse(""))
         var rSolved = r
         try {
@@ -54,6 +56,9 @@ class Synth {
             return
         }
 
+        val duration = (System.nanoTime - t1) / 1e9d
+        logger.info("Duration: " + duration)
+
         val helper = new STSolverHelper()
         try {
           helper.rebuildST(rSolved)
@@ -64,7 +69,7 @@ class Synth {
             return
         }
 
-        val parseTreeSolved = new STParseTree(rSolved, "solved")
+        val parseTreeSolved = new STParseTree(rSolved, "optimised")
         try {
           parseTreeSolved.construct()
         } catch {

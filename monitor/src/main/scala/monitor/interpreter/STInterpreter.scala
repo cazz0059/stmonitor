@@ -121,7 +121,6 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
   def walk(statement: Statement): Unit = {
     statement match {
       case statement @ ReceiveStatement(label, id, types, condition, _) =>
-        println(label)
         curScope = id
         //checkCondition(label, types, condition)
         synthMon.handleReceive(statement, statement.continuation, scopes(curScope).isUnique) // Change isUnique accordingly
@@ -129,7 +128,6 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         walk(statement.continuation)
 
       case statement @ SendStatement(label, id, types, condition, _) =>
-        println(label)
         curScope = id
         //checkCondition(label, types, condition)
 
@@ -138,7 +136,6 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         walk(statement.continuation)
 
       case statement @ ReceiveChoiceStatement(label, choices) =>
-        println(label)
         curScope = label
         val tmpScope = curScope
         synthMon.handleReceiveChoice(statement)
@@ -146,7 +143,6 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
 
         for(choice <- choices) {
           curScope = choice.asInstanceOf[ReceiveStatement].statementID
-          println("choice1")
 
           //checkCondition(choice.asInstanceOf[ReceiveStatement].label, choice.asInstanceOf[ReceiveStatement].types, choice.asInstanceOf[ReceiveStatement].condition)
           synthProtocol.handleReceive(choice.asInstanceOf[ReceiveStatement], scopes(curScope).isUnique, choice.asInstanceOf[ReceiveStatement].continuation, getScope(choice.asInstanceOf[ReceiveStatement].continuation).isUnique, statement.label)
@@ -157,7 +153,6 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         }
 
       case statement @ SendChoiceStatement(label, choices) =>
-        println(label)
         curScope = label
         val tmpScope = curScope
         synthMon.handleSendChoice(statement)
@@ -166,35 +161,23 @@ class STInterpreter(sessionType: SessionType, path: String, preamble: String) {
         for(choice <- choices) {
           curScope = choice.asInstanceOf[SendStatement].statementID
           //checkCondition(choice.asInstanceOf[SendStatement].label, choice.asInstanceOf[SendStatement].types, choice.asInstanceOf[SendStatement].condition)
-          println("choice")
-          println(choice.asInstanceOf[SendStatement])
-          println(scopes(curScope).isUnique)
-          println(choice.asInstanceOf[SendStatement].continuation)
-          println(getScope(choice.asInstanceOf[SendStatement].continuation))
-          println(getScope(choice.asInstanceOf[SendStatement].continuation).isUnique)
-          println(getScope(statement.label))
           synthProtocol.handleSend(choice.asInstanceOf[SendStatement], scopes(curScope).isUnique, choice.asInstanceOf[SendStatement].continuation, getScope(choice.asInstanceOf[SendStatement].continuation).isUnique, statement.label)
-          println("hello")
           if(choice.asInstanceOf[SendStatement].continuation != null)
             walk(choice.asInstanceOf[SendStatement].continuation)
           curScope = tmpScope
         }
 
       case statement @ RecursiveStatement(label, body) =>
-        println(label)
         walk(statement.body)
 
       case statement @ RecursiveVar(name, continuation) =>
-        println(name)
         checkRecVariable(scopes(curScope), statement)
         walk(statement.continuation)
 
       case End() =>
-        println("End")
 
 
       case null =>
-        println("null")
 
 
     }

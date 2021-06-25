@@ -1,0 +1,1 @@
+S_listRes = ?Request(certificate : String, subject : String, resource_kind : String, operation : String, resource : String)[util.checkPrivilege(subject, resource, operation, certificate)].+{!Ok().rec X.(+{!Response(element : String).X, !Completed()}), !Error(reason : String)[(operation == null) || (certificate == null)]}

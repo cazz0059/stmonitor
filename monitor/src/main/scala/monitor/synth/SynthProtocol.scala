@@ -26,21 +26,14 @@ class SynthProtocol(sessionTypeInterpreter: STInterpreter, path: String) {
   }
 
   def handleSend(statement: SendStatement, isCurUnique: Boolean, nextStatement: Statement, isNextUnique: Boolean, label: String): Unit = {
-    println("what")
     if(isCurUnique){
-      println("here")
       protocol.append("case class "+statement.label+"(")
     } else {
-      println("here2")
       protocol.append("case class "+statement.statementID+"(")
     }
-    println("prot")
     handleParam(statement)
-    println("prot2")
     protocol.append(")")
-    println("prot3")
     handleSendNextCase(nextStatement, isNextUnique)
-    println("prot4")
 
 
     label match {

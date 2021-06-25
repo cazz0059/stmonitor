@@ -12,8 +12,8 @@ class STSolverHelper {
 
   def addToTraces(currTrace : ListBuffer[String], verdict : Boolean) : Unit = {
     fullTraces += (currTrace -> verdict)
-    println("Added to fulltraces")
-    println(currTrace)
+//    println("Added to fulltraces")
+//    println(currTrace)
   }
 
   def getCurrentTrace(statement: Statement, currentTrace : ListBuffer[String]) : Unit = {
@@ -71,19 +71,19 @@ class STSolverHelper {
   def updateTraces(traceLabels : List[String], allTraces : mutable.LinkedHashMap[ListBuffer[String], Boolean]) : mutable.LinkedHashMap[ListBuffer[String], Boolean] = {
     var traces = allTraces
     val fullTraceString = traceLabels.mkString(" ")
-    println("Using " + fullTraceString)
+    //println("Using " + fullTraceString)
     for (trc <- allTraces) {
       // Reversing the order
       val trcReversed = trc._1.toList.reverse
       val trcString = trcReversed.mkString(" ")
-      println("Comparing with " + trcString)
+      //println("Comparing with " + trcString)
 
       if (traceLabels.forall(trc._1.toList.contains)) {
-        println("Matched")
+        //println("Matched")
         traces.put(trc._1, false)
       }
       else {
-        println("Unmatched")
+        //println("Unmatched")
       }
     }
 
@@ -227,7 +227,7 @@ class STSolverHelper {
 
   def rebuildST(sessionType: SessionType): Unit = {
     val rebuiltST = sessionType.name + " = " + rebuilding(sessionType.statement)
-    val pw = new PrintWriter(new File("examples/src/main/scala/examples/solvedST/" + sessionType.name + ".st"))
+    val pw = new PrintWriter(new File("examples/src/main/scala/examples/optimisedST/" + sessionType.name + ".st"))
     pw.write(rebuiltST)
     pw.close()
   }

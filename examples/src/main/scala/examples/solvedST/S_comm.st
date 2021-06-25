@@ -1,1 +1,0 @@
-S_comm = !M1(x : Int)[x > 5].rec X.(?M3(msg : String).X.)
