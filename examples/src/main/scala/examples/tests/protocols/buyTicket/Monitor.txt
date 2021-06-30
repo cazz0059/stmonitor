@@ -1,0 +1,72 @@
+package examples.tests.protocols.buyTicket
+
+import lchannels.{In, Out}
+import monitor.util.ConnectionManager
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.util.control.TailCalls.{TailRec, done, tailcall}
+class Monitor(external: ConnectionManager, internal: In[Request], max: Int, report: String => Unit)(implicit ec: ExecutionContext, timeout: Duration) extends Runnable {
+	object payloads {
+		object Request_6 {
+			var travel: String = _
+		}
+		object Quote_5 {
+			var quote: Int = _
+		}
+		object Check_4 {
+			var payment: Int = _
+		}
+		object Refuse_3 {
+			var message: String = _
+		}
+	}
+	override def run(): Unit = {
+		report("[MONITOR] Monitor started, setting up connection manager")
+		external.setup()
+		sendRequest_6(internal, external, 0).result
+    external.close()
+  }
+	def sendRequest_6(internal: In[Request], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		internal ? {
+			case msg @ Request(_) =>
+				external.send(msg)
+				if (count < max) {
+					receiveQuote_5(msg.cont, external, count+1)
+				} else { tailcall(receiveQuote_5(msg.cont, external, 0)) }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+  def receiveQuote_5(internal: Out[Quote], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Quote(_)=>
+				val cont = internal !! Quote(msg.quote)_
+				if (count < max) {
+					sendCheck_4(cont, external, count+1)
+				} else { tailcall(sendCheck_4(cont, external, 0)) }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def sendCheck_4(internal: In[Check], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		internal ? {
+			case msg @ Check(_) =>
+				if(msg.payment > 10){
+					external.send(msg)
+					if (count < max) {
+						receiveInternalChoice1(msg.cont, external, count+1)
+					} else { tailcall(receiveInternalChoice1(msg.cont, external, 0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: payment > 10"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def receiveInternalChoice1(internal: Out[InternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ Refuse(_)=>
+				if(util.refuse(msg.message)){
+					internal ! msg; done()
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: util.refuse(message)"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+}

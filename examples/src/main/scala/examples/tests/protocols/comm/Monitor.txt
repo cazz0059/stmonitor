@@ -1,0 +1,46 @@
+package examples.tests.protocols.comm
+
+import lchannels.{In, Out}
+import monitor.util.ConnectionManager
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.util.control.TailCalls.{TailRec, done, tailcall}
+class Monitor(external: ConnectionManager, internal: Out[M1], max: Int, report: String => Unit)(implicit ec: ExecutionContext, timeout: Duration) extends Runnable {
+	object payloads {
+		object M1_3 {
+			var x: Int = _
+		}
+		object M3_2 {
+			var msg: String = _
+		}
+	}
+	override def run(): Unit = {
+		report("[MONITOR] Monitor started, setting up connection manager")
+		external.setup()
+		receiveM1_3(internal, external, 0).result
+    external.close()
+  }
+  def receiveM1_3(internal: Out[M1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		external.receive() match {
+			case msg @ M1(_)=>
+				if(msg.x > 5){
+					val cont = internal !! M1(msg.x)_
+					if (count < max) {
+						sendExternalChoice1(cont, external,count+1)
+					} else { tailcall(sendExternalChoice1(cont, external,0)) }
+				} else {
+				report("[MONITOR] VIOLATION in Assertion: x > 5"); done() }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+	def sendExternalChoice1(internal: In[ExternalChoice1], external: ConnectionManager, count: Int): TailRec[Unit] = {
+		internal ? {
+			case msg @ M3(_) =>
+				external.send(msg)
+				if (count < max) {
+					sendExternalChoice1(msg.cont, external, count+1)
+				} else { tailcall(sendExternalChoice1(msg.cont, external, 0)) }
+			case msg @ _ => report(f"[MONITOR] VIOLATION unknown message: $msg"); done()
+		}
+	}
+}

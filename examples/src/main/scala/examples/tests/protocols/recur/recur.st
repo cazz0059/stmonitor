@@ -1,4 +1,4 @@
-S_recur = +{
+S_recur =
     !Offer().&{
         ?Option1(x : Int)[x >= 0].+{
             !Accept1(n : Int)[util.noRecur(x, n)],
@@ -9,4 +9,3 @@ S_recur = +{
             !Reject2(n : Int)[!util.noRecur(x, n)]
         }
     }
-}
